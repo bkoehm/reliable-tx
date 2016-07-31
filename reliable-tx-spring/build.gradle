@@ -1,0 +1,34 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'eclipse'
+
+repositories {
+    mavenLocal()
+    // If using a Maven proxy, put the property settings in
+    // ~/.gradle/gradle.properties for default_proxy_url,
+    // default_proxy_username and default_proxy_password.
+    if (project.hasProperty("default_proxy_url")) {
+        maven {
+            url project.property("default_proxy_url")
+            credentials {
+                username project.property("default_proxy_username")
+                password project.property("default_proxy_password")
+            }
+        }
+    }
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    // Versions are set in gradle.properties
+
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    testCompile "org.slf4j:slf4j-log4j12:$slf4jVersion"
+
+    testCompile "junit:junit:$junitVersion"
+    
+    // Spring
+    compile "org.springframework:spring-core:$springVersion"
+    compile "org.springframework:spring-tx:$springVersion"
+}

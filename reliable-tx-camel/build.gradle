@@ -1,0 +1,53 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+
+repositories {
+    mavenLocal()
+    // If using a Maven proxy, put the property settings in
+    // ~/.gradle/gradle.properties for default_proxy_url,
+    // default_proxy_username and default_proxy_password.
+    if (project.hasProperty("default_proxy_url")) {
+        maven {
+            url project.property("default_proxy_url")
+            credentials {
+                username project.property("default_proxy_username")
+                password project.property("default_proxy_password")
+            }
+        }
+    }
+    jcenter()
+    mavenCentral()
+}
+
+dependencies {
+    // Versions are set in gradle.properties
+
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    testCompile "org.slf4j:slf4j-log4j12:$slf4jVersion"
+
+    testCompile "junit:junit:$junitVersion"
+    
+    // Camel
+    compile "org.apache.camel:camel-core:$camelVersion"
+    compile "org.apache.camel:camel-spring:$camelVersion"
+    testCompile "org.apache.camel:camel-jms:$camelVersion"
+
+    // ActiveMQ
+    testCompile "org.apache.activemq:activemq-broker:$amqVersion"
+    testCompile "org.apache.activemq:activemq-camel:$amqVersion"
+
+    // Spring JMS (primarily for the JmsTransactionManager)
+    testCompile "org.springframework:spring-jms:$springVersion"
+
+    // JTA
+    testCompile "com.atomikos:transactions-jta:$atomikosVersion"
+    testCompile "com.atomikos:transactions-jms:$atomikosVersion"
+    testCompile 'javax.transaction:jta:1.1'
+    
+    // reliable-tx
+    compile project(":reliable-tx-spring")
+}
+
+test {
+    maxParallelForks = 1
+}

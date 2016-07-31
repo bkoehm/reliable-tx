@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+    xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/tx
+           http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <tx:annotation-driven transaction-manager="txManager" />
+
+    <!-- request/reply message producers (at least using temporary queues) 
+        can't be transactional. See TemporaryQueueReplyManager.createListenerContainer() 
+        and QueueReplyReplyManager.createListenerContainer() where answer.setSessionTransacted() 
+        is hard-coded to false. -->
+    <bean id="jmsConnectionFactoryForRequestReplyMessageProducer"
+        class="org.apache.activemq.spring.ActiveMQConnectionFactory">
+        <property name="brokerURL"
+            value="vm://localhost?broker.persistent=false&amp;broker.useJmx=false" />
+        <property name="redeliveryPolicyMap" ref="amqRedeliveryPolicyMap" />
+    </bean>
+
+    <bean id="jmsConnectionFactoryForAtomikos"
+        class="org.apache.activemq.spring.ActiveMQXAConnectionFactory">
+        <property name="brokerURL"
+            value="vm://localhost?broker.persistent=false&amp;broker.useJmx=false" />
+        <property name="redeliveryPolicyMap" ref="amqRedeliveryPolicyMap" />
+    </bean>
+    <bean id="atomikosJmsConnectionFactory" class="com.atomikos.jms.AtomikosConnectionFactoryBean"
+        init-method="init" destroy-method="close">
+        <property name="uniqueResourceName" value="amq1" />
+        <property name="xaConnectionFactory" ref="jmsConnectionFactoryForAtomikos" />
+        <property name="poolSize" value="20" />
+    </bean>
+
+    <bean id="amqRedeliveryPolicy" class="org.apache.activemq.RedeliveryPolicy">
+        <property name="maximumRedeliveries" value="0" />
+    </bean>
+
+    <bean id="amqRedeliveryPolicyMap"
+        class="org.apache.activemq.broker.region.policy.RedeliveryPolicyMap">
+        <property name="defaultEntry" ref="amqRedeliveryPolicy" />
+    </bean>
+
+    <bean id="CAMEL_PROPAGATION_MANDATORY" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+        <property name="transactionManager" ref="jtaTransactionManager" />
+        <property name="propagationBehaviorName" value="PROPAGATION_MANDATORY" />
+    </bean>
+    <bean id="CAMEL_PROPAGATION_REQUIRED" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+        <property name="transactionManager" ref="jtaTransactionManager" />
+        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED" />
+    </bean>
+    <bean id="CAMEL_PROPAGATION_REQUIRES_NEW" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+        <property name="transactionManager" ref="jtaTransactionManager" />
+        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRES_NEW" />
+    </bean>
+
+    <bean id="redeliveryPolicy" class="org.apache.camel.processor.RedeliveryPolicy">
+        <property name="maximumRedeliveries" value="0" />
+    </bean>
+
+    <bean id="transactionTemplate"
+        class="org.springframework.transaction.support.TransactionTemplate">
+        <property name="transactionManager" ref="jtaTransactionManager" />
+        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED" />
+    </bean>
+
+    <bean id="transactionErrorHandler"
+        class="org.apache.camel.spring.spi.TransactionErrorHandlerBuilder">
+        <property name="redeliveryPolicy" ref="redeliveryPolicy" />
+        <property name="springTransactionPolicy" ref="CAMEL_PROPAGATION_REQUIRED" />
+        <property name="transactionTemplate" ref="transactionTemplate" />
+    </bean>
+
+    <!-- Construct Atomikos UserTransactionManager, needed to configure Spring -->
+    <!-- TODO: Doesn't seem to be used. UserTransaction seems to end up using 
+        a different txMgr. Is it instantiated/configured right? -->
+    <bean id="AtomikosTransactionManager" class="com.atomikos.icatch.jta.UserTransactionManager"
+        init-method="init" destroy-method="close">
+
+        <!-- when close is called, should we force transactions to terminate 
+            or not? -->
+        <property name="forceShutdown" value="false" />
+    </bean>
+
+    <!-- Also use Atomikos UserTransactionImp, needed to configure Spring -->
+    <bean id="AtomikosUserTransaction" class="com.atomikos.icatch.jta.UserTransactionImp">
+        <property name="transactionTimeout" value="300" />
+    </bean>
+
+    <!-- Configure the Spring framework to use JTA transactions from Atomikos -->
+    <bean id="jtaTransactionManager"
+        class="org.springframework.transaction.jta.JtaTransactionManager">
+
+        <!-- TODO: Doesn't seem to be used. UserTransaction seems to end 
+            up using a different txMgr. Is it instantiated/configured right? -->
+        <property name="transactionManager" ref="AtomikosTransactionManager" />
+
+        <property name="userTransaction" ref="AtomikosUserTransaction" />
+    </bean>
+
+    <!-- Camel Redelivery Policy -->
+    <bean id="camelRedeliveryPolicy" class="org.apache.camel.processor.RedeliveryPolicy">
+        <property name="maximumRedeliveries" value="0" />
+    </bean>
+
+    <!-- Camel Error Handler Builder -->
+    <bean id="camelErrorHandlerBuilder" class="org.apache.camel.builder.DefaultErrorHandlerBuilder">
+        <property name="redeliveryPolicy" ref="camelRedeliveryPolicy" />
+    </bean>
+
+    <!-- JTA CamelContext -->
+    <bean id="jtaCamelContext" class="org.apache.camel.spring.SpringCamelContext">
+        <property name="errorHandlerBuilder" ref="transactionErrorHandler" />
+    </bean>
+
+    <!-- JTA JmsConfiguration for Camel -->
+    <bean id="jtaJmsConfiguration"
+        class="org.apache.activemq.camel.component.ActiveMQConfiguration">
+        <property name="connectionFactory" ref="atomikosJmsConnectionFactory" />
+        <property name="lazyCreateTransactionManager" value="false" />
+        <property name="transactionManager" ref="jtaTransactionManager" />
+        <property name="transacted" value="true" />
+        <!-- deprecated, but JmsComponent.jmsComponentTransacted() still 
+            sets it -->
+        <property name="transactedInOut" value="true" />
+    </bean>
+
+    <!-- JTA ActiveMQ component for Camel -->
+    <bean id="jtaActiveMQComponent"
+        class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="configuration" ref="jtaJmsConfiguration" />
+        <property name="camelContext" ref="jtaCamelContext" />
+    </bean>
+    <!-- and add the component to the context -->
+    <bean class="org.springframework.beans.factory.config.MethodInvokingBean">
+        <property name="targetObject" ref="jtaCamelContext" />
+        <property name="targetMethod" value="addComponent" />
+        <property name="arguments">
+            <array value-type="java.lang.Object">
+                <value>activemq</value>
+                <ref bean="jtaActiveMQComponent" />
+            </array>
+        </property>
+    </bean>
+
+    <!-- Non-transactional CamelContext -->
+    <bean id="ntCamelContext" class="org.apache.camel.spring.SpringCamelContext">
+        <property name="errorHandlerBuilder" ref="camelErrorHandlerBuilder" />
+    </bean>
+
+    <!-- Non-transactional JmsConfiguration for Camel -->
+    <bean id="ntJmsConfiguration"
+        class="org.apache.activemq.camel.component.ActiveMQConfiguration">
+        <property name="connectionFactory"
+            ref="jmsConnectionFactoryForRequestReplyMessageProducer" />
+        <property name="lazyCreateTransactionManager" value="false" />
+    </bean>
+
+    <!-- Non-transactional ActiveMQ component for Camel -->
+    <bean id="ntActiveMQComponent"
+        class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="configuration" ref="ntJmsConfiguration" />
+        <property name="camelContext" ref="ntCamelContext" />
+    </bean>
+    <!-- and add the component to the context -->
+    <bean class="org.springframework.beans.factory.config.MethodInvokingBean">
+        <property name="targetObject" ref="ntCamelContext" />
+        <property name="targetMethod" value="addComponent" />
+        <property name="arguments">
+            <array value-type="java.lang.Object">
+                <value>activemq</value>
+                <ref bean="ntActiveMQComponent" />
+            </array>
+        </property>
+    </bean>
+
+    <!-- Non-transactional Producer Template -->
+    <bean id="producer"
+        class="org.apache.camel.spring.CamelProducerTemplateFactoryBean">
+        <property name="camelContext" ref="ntCamelContext" />
+    </bean>
+
+    <!-- ReliableTxConsumerBuilder -->
+    <bean id="consumerBuilder" class="software.reliabletx.camel.ReliableTxConsumerBuilder">
+        <property name="transactionPolicyRefName" value="CAMEL_PROPAGATION_REQUIRED" />
+        <property name="transactionManager" ref="jtaTransactionManager" />
+    </bean>
+
+    <!-- bean used as a Camel destination in the tests -->
+    <bean id="testReceiverBean" class="software.reliabletx.camel.TestReceiverBean">
+        <property name="jmsTransactionManager" ref="jtaTransactionManager" />
+    </bean>
+
+</beans>
