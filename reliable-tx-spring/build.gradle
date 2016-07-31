@@ -75,7 +75,7 @@ if (project.hasProperty('default_bintray_user')) {
         key = project.property('default_bintray_api_key')
         publications = ['mavenJava']
 
-        dryRun = true
+        //dryRun = true
 
         pkg {
             repo = 'maven'
