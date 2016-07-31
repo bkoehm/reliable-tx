@@ -153,7 +153,7 @@ public class TestEmbeddedBroker {
      * 
      * @throws JMSException
      */
-    public void setUpDlqConsumer(String dlqName) throws JMSException {
+    public void setUpDlqConsumer(final String dlqName) throws JMSException {
         Connection connection = getNewJmsConnection();
         consumerConnections.add(connection);
         final Session session = getNewJmsSession(connection);
