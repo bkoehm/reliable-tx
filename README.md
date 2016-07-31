@@ -68,7 +68,7 @@ but:
     Because Camel rolls back the original exchange transaction, no reply
     will be sent.  In the context of messaging, such as JMS, the JMS
     producer client that sent the message to the queue will never see a
-    reply (assuming you're using 'InOut' pattern).  You'll either want the
+    reply (assuming you're using `InOut` pattern).  You'll either want the
     client to be configured with a wait-for-reply-timeout value so it times
     out within a reasonable time limit or you'll want the client to use the
     `InOnly` pattern so it never waits for a reply.  Additionally, since the
