@@ -1,7 +1,34 @@
 apply plugin: 'java'
+apply plugin: 'maven-publish'
+apply plugin: 'com.jfrog.bintray'
 
-sourceCompatibility = project.property("jdkCompatibilityVersion")
-targetCompatibility = project.property("jdkCompatibilityVersion")
+// variables in gradle.properties
+group = projectGroup
+version = projectVersion
+sourceCompatibility = jdkCompatibilityVersion
+targetCompatibility = jdkCompatibilityVersion
+
+buildscript {
+    repositories {
+        mavenLocal()
+        // If using a Maven proxy, put the property settings in
+        // ~/.gradle/gradle.properties for default_proxy_url,
+        // default_proxy_username and default_proxy_password.
+        if (project.hasProperty("default_proxy_url")) {
+            maven {
+                url project.property("default_proxy_url")
+                credentials {
+                    username project.property("default_proxy_username")
+                    password project.property("default_proxy_password")
+                }
+            }
+        }
+        jcenter()
+        mavenCentral()
+    }
+
+    dependencies { classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:$bintrayGradlePluginVersion" }
+}
 
 repositories {
     mavenLocal()
@@ -28,7 +55,7 @@ dependencies {
     testCompile "org.slf4j:slf4j-log4j12:$slf4jVersion"
 
     testCompile "junit:junit:$junitVersion"
-    
+
     // Camel
     compile "org.apache.camel:camel-core:$camelVersion"
     compile "org.apache.camel:camel-spring:$camelVersion"
@@ -45,11 +72,41 @@ dependencies {
     testCompile "com.atomikos:transactions-jta:$atomikosVersion"
     testCompile "com.atomikos:transactions-jms:$atomikosVersion"
     testCompile 'javax.transaction:jta:1.1'
-    
+
     // reliable-tx
     compile project(":reliable-tx-spring")
 }
 
-test {
-    maxParallelForks = 1
+test { maxParallelForks = 1 }
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) { from components.java }
+    }
+}
+
+if (project.hasProperty('default_bintray_user')) {
+    // deploy with: gradle bintrayUpload
+    bintray {
+        // put in ~/.gradle/gradle.properties
+        user = project.property('default_bintray_user')
+        key = project.property('default_bintray_api_key')
+        publications = ['mavenJava']
+
+        dryRun = true
+
+        pkg {
+            repo = 'maven'
+            name = 'reliable-tx-camel'
+            desc = 'Reliable transactions for Apache Camel'
+            licenses = ['Apache-2.0']
+            vcsUrl = 'https://github.com/bkoehm/reliable-tx.git'
+            issueTrackerUrl = 'https://github.com/bkoehm/reliable-tx/issues'
+            version {
+                name = project.version
+                desc = "reliable-tx-camel v${project.version}- Reliable transactions for Apache Camel"
+                released = new Date()
+            }
+        }
+    }
 }
