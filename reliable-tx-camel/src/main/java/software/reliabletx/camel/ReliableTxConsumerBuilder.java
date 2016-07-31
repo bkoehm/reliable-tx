@@ -86,7 +86,7 @@ public class ReliableTxConsumerBuilder {
         this.transactionManager = transactionManager;
     }
 
-    public ProcessorDefinition<?> from(Endpoint origin, ErrorResponseMode errorHandlingMode,
+    public ProcessorDefinition<?> from(Endpoint origin, final ErrorResponseMode errorHandlingMode,
             SpringRouteBuilder routeBuilder) throws Exception {
         assert transactionPolicyRefName != null;
         return routeBuilder.from(origin)
