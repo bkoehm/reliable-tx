@@ -24,13 +24,15 @@ Say you're setting up a JMS Consumer using Camel.  (Note: It doesn't have to
 be JMS.  The `from()` component can be any Camel component.)
 
 One way in Camel to configure a JMS consumer (without using reliable-tx):
-```from(jmsQueueUri)
+```
+from(jmsQueueUri)
     .to(destinationUri)
 ```
 
 If you want to add reliable-tx semantics to this consumer, you would now
 configure the consumer this way:
-```consumerBuilder
+```
+consumerBuilder
     .from(jmsQueueUri, ErrorResponseMode.EXCEPTION_AS_REPLY, this)
     .to(destinationUri);
 ```
