@@ -79,9 +79,25 @@ dependencies {
 
 test { maxParallelForks = 1 }
 
+jar { from "../LICENSE" }
+
+task sourceJar(type: Jar) {
+    from sourceSets.main.allJava
+    from "../LICENSE"
+}
+
+task javadocJar (type: Jar, dependsOn: javadoc) {
+    from javadoc.destinationDir
+    from "../LICENSE"
+}
+
 publishing {
     publications {
-        mavenJava(MavenPublication) { from components.java }
+        mavenJava(MavenPublication) {
+            from components.java
+            artifact sourceJar { classifier "sources" }
+            artifact (javadocJar) { classifier "javadoc" }
+        }
     }
 }
 
@@ -100,8 +116,11 @@ if (project.hasProperty('default_bintray_user')) {
             name = 'reliable-tx-camel'
             desc = 'Reliable transactions for Apache Camel'
             licenses = ['Apache-2.0']
+            websiteUrl = 'https://github.com/bkoehm/reliable-tx'
             vcsUrl = 'https://github.com/bkoehm/reliable-tx.git'
             issueTrackerUrl = 'https://github.com/bkoehm/reliable-tx/issues'
+            githubRepo = 'bkoehm/reliable-tx'
+            githubReleaseNotesFile = 'README.md'
             version {
                 name = project.version
                 desc = "reliable-tx-camel v${project.version}- Reliable transactions for Apache Camel"
