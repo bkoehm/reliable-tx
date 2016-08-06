@@ -79,6 +79,26 @@ publishing {
             from components.java
             artifact sourceJar { classifier "sources" }
             artifact (javadocJar) { classifier "javadoc" }
+            pom.withXml {
+                asNode().children().last() + {
+                    resolveStrategy = Closure.DELEGATE_FIRST
+                    name projectName
+                    description projectDescription
+                    url githubWebUrl
+                    scm {
+                        url githubWebUrl
+                        connection "scm:git:${githubWebUrl}.git"
+                        developerConnection "scm:git:${githubWebUrl}.git"
+                    }
+                    licenses {
+                        license {
+                            name 'The Apache Software License, Version 2.0'
+                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
+                            distribution 'repo'
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -95,18 +115,18 @@ if (project.hasProperty('default_bintray_user')) {
 
         pkg {
             repo = 'maven'
-            name = 'reliable-tx-spring'
-            desc = 'Reliable transactions for Spring'
+            name = projectName
+            desc = projectDescription
             licenses = ['Apache-2.0']
-            websiteUrl = 'https://github.com/bkoehm/reliable-tx'
-            vcsUrl = 'https://github.com/bkoehm/reliable-tx.git'
-            issueTrackerUrl = 'https://github.com/bkoehm/reliable-tx/issues'
-            githubRepo = 'bkoehm/reliable-tx'
-            githubReleaseNotesFile = 'README.md'
+            websiteUrl = githubWebUrl
+            vcsUrl = "${githubWebUrl}.git"
+            issueTrackerUrl = '${githubWebUrl}/issues'
+            githubRepo = githubRepo
             version {
                 name = project.version
-                desc = "reliable-tx-spring v${project.version}- Reliable transactions for Spring"
+                desc = "${projectName} v${project.version} - ${projectDescription}"
                 released = new Date()
+                vcsTag = "v${project.version}"
             }
         }
     }
