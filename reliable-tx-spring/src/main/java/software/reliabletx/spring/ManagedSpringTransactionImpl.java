@@ -76,47 +76,66 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
      * existing transaction, it will be suspended. That transaction will be
      * resumed when this transaction is committed or rolled back. */
 
-    private PlatformTransactionManager transactionManager;
-    private TransactionStatus txStatus;
-    private volatile boolean isStarted;
-    private SpringTransactionSynchronization synchronization;
-    private String txName;
-    /* cached from isSynchronizationSupported() result */
-    private boolean isSynchronizationSupported;
+    private PlatformTransactionManager _transactionManager;
+    private TransactionStatus _txStatus;
+    private SpringTransactionSynchronization _synchronization;
+    private String _txName;
+    /* if true, transaction manager must support synchronization and have it
+     * set to something other than SYNCHRONIZATION_NEVER */
+    private boolean _isSynchronizationEnforced = true;
+    private volatile boolean _isStarted;
 
     public ManagedSpringTransactionImpl() {
     }
 
-    public ManagedSpringTransactionImpl(AbstractPlatformTransactionManager transactionManager) {
-        /* The transaction manager needs to support transaction
-         * synchronization. */
-        assert transactionManager
-                .getTransactionSynchronization() != AbstractPlatformTransactionManager.SYNCHRONIZATION_NEVER;
-        this.transactionManager = transactionManager;
+    /**
+     * Initializes isSynchronizationEnforced to true if transactionManager is
+     * an instance of AbstractPlatformTransactionManager.
+     */
+    public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager) {
+        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager));
+    }
+
+    public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager,
+            boolean isSynchronizationEnforced) {
+        setSynchronizationEnforced(isSynchronizationEnforced);
+        setTransactionManager(transactionManager);
     }
 
     public TransactionStatus getTxStatus() {
-        return txStatus;
+        return _txStatus;
     }
 
     public boolean isStarted() {
-        return isStarted;
+        return _isStarted;
     }
 
     protected SpringTransactionSynchronization getSynchronization() {
-        return synchronization;
+        return _synchronization;
     }
 
     public SynchronizationState getSynchronizationState() {
-        return (synchronization != null ? synchronization.getState() : SynchronizationState.NOT_SUPPORTED);
+        return (getSynchronization() != null ? getSynchronization().getState() : SynchronizationState.NOT_SUPPORTED);
     }
 
     public PlatformTransactionManager getTransactionManager() {
-        return transactionManager;
+        return _transactionManager;
+    }
+
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this._transactionManager = transactionManager;
+    }
+
+    public boolean isSynchronizationEnforced() {
+        return _isSynchronizationEnforced;
+    }
+
+    public void setSynchronizationEnforced(boolean isSynchronizationEnforced) {
+        this._isSynchronizationEnforced = isSynchronizationEnforced;
     }
 
     public String getTransactionName() {
-        return txName;
+        return _txName;
     }
 
     protected TransactionDefinition getPropagationRequiresNewTransactionDefinition(String txName) {
@@ -127,7 +146,18 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
     }
 
     public boolean isSynchronizationSupported() {
-        return transactionManager instanceof AbstractPlatformTransactionManager;
+        return (getTransactionManager() instanceof AbstractPlatformTransactionManager)
+                && (((AbstractPlatformTransactionManager) getTransactionManager())
+                        .getTransactionSynchronization() != AbstractPlatformTransactionManager.SYNCHRONIZATION_NEVER);
+    }
+
+    private void assertSynchronizationEnforced() {
+        if (isSynchronizationEnforced()) {
+            if (!isSynchronizationSupported()) {
+                throw new RuntimeException(
+                        "isSynchronizationEnforced is enabled and synchronization is not supported or it's set to SYNCHRONIZATION_NEVER");
+            }
+        }
     }
 
     public synchronized void beginTransaction(String txName) throws IllegalStateException {
@@ -138,37 +168,42 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         if (log.isTraceEnabled())
             log.trace("creating new tx using txName=" + txName);
 
-        this.isSynchronizationSupported = isSynchronizationSupported();
-        if (isSynchronizationSupported) {
-            /* synchronization should be enabled on the transaction manager
-             * if it's supported */
-            assert ((AbstractPlatformTransactionManager) transactionManager)
-                    .getTransactionSynchronization() != AbstractPlatformTransactionManager.SYNCHRONIZATION_NEVER;
-        }
+        assertSynchronizationEnforced();
 
         /* Start the new transaction. */
         TransactionDefinition txDef = getPropagationRequiresNewTransactionDefinition(txName);
 
         /* Confirm we're in a new-transaction state. */
-        this.txStatus = transactionManager.getTransaction(txDef);
-        assert txStatus.isNewTransaction();
-        if (isSynchronizationSupported) {
+        initNewTransactionDefinition(txDef);
+
+        /* If synchronization is supported, add a synchronization callback
+         * object. */
+        initNewSynchronization(txName);
+
+        this._txName = txName;
+        this._isStarted = true;
+    }
+
+    private void initNewTransactionDefinition(TransactionDefinition txDef) {
+        this._txStatus = getTransactionManager().getTransaction(txDef);
+        assert _txStatus.isNewTransaction();
+    }
+
+    private void initNewSynchronization(String txName) {
+        if (isSynchronizationSupported()) {
             assert TransactionSynchronizationManager.isSynchronizationActive();
             assert TransactionSynchronizationManager.isActualTransactionActive();
             assert txName.equals(TransactionSynchronizationManager.getCurrentTransactionName());
 
             /* Initialize the synchronization object that belongs to this
              * transaction. */
-            this.synchronization = new SpringTransactionSynchronization();
-            synchronization.init();
+            this._synchronization = new SpringTransactionSynchronization();
+            _synchronization.init();
 
             /* Register the synchronization with the current transaction. */
-            TransactionSynchronizationManager.registerSynchronization(synchronization);
-            synchronization.assertTransactionCurrentAndActive();
+            TransactionSynchronizationManager.registerSynchronization(_synchronization);
+            _synchronization.assertTransactionCurrentAndActive();
         }
-
-        this.isStarted = true;
-        this.txName = txName;
     }
 
     private void assertBegun() throws IllegalStateException {
@@ -179,8 +214,9 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
     public boolean isCurrentAndActive() throws IllegalStateException {
         assertBegun();
-        if (isSynchronizationSupported) {
-            return !getTxStatus().isCompleted() && getSynchronization().isTransactionCurrentAndActive(txName);
+        if (isSynchronizationSupported()) {
+            return !getTxStatus().isCompleted()
+                    && getSynchronization().isTransactionCurrentAndActive(getTransactionName());
         } else {
             /* since synchronization is not supported, all we have to go on
              * is txStatus.isCompleted */
@@ -220,11 +256,11 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
             assertCurrentAndActive();
             if (log.isTraceEnabled())
                 log.trace("committing");
-            getTransactionManager().commit(txStatus);
+            getTransactionManager().commit(getTxStatus());
             assert getTxStatus().isCompleted();
             if (log.isTraceEnabled())
                 log.trace("done with commit");
-            if (isSynchronizationSupported) {
+            if (isSynchronizationSupported()) {
                 assert isCommitted();
             }
         }
@@ -234,23 +270,23 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         assertCurrentAndActive();
         if (log.isTraceEnabled())
             log.trace("rolling back");
-        getTransactionManager().rollback(txStatus);
+        getTransactionManager().rollback(getTxStatus());
         assert getTxStatus().isCompleted();
         if (log.isTraceEnabled())
             log.trace("done with rollback");
-        if (isSynchronizationSupported) {
+        if (isSynchronizationSupported()) {
             assert isRolledBack();
         }
     }
 
     public boolean isCommitted() throws IllegalStateException {
-        if (!isSynchronizationSupported)
+        if (!isSynchronizationSupported())
             throw new IllegalStateException("Synchronization is not supported for this transaction manager");
         return getSynchronization().getState().equals(SynchronizationState.COMMITTED);
     }
 
     public boolean isRolledBack() throws IllegalStateException {
-        if (!isSynchronizationSupported)
+        if (!isSynchronizationSupported())
             throw new IllegalStateException("Synchronization is not supported for this transaction manager");
         return getSynchronization().getState().equals(SynchronizationState.ROLLED_BACK);
     }
