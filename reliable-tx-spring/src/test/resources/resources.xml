@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:tx="http://www.springframework.org/schema/tx"
+    xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/tx
+           http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <tx:annotation-driven transaction-manager="transactionManager" />
+
+    <bean id="hsqlDriver" class="org.hsqldb.jdbc.JDBCDriver" />
+
+    <bean id="dataSource"
+        class="org.springframework.jdbc.datasource.SimpleDriverDataSource">
+        <property name="driver" ref="hsqlDriver"/>
+        <property name="url" value="jdbc:hsqldb:mem:testDb;hsqldb.tx=MVCC" />
+    </bean>
+
+    <bean id="transactionManager"
+        class="software.reliabletx.spring.ExtendedDataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource" />
+    </bean>
+
+    <bean id="testBean" class="software.reliabletx.spring.TestTransactionalBean" />
+</beans>

@@ -14,28 +14,25 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.camel;
+package software.reliabletx.spring;
 
-import software.reliabletx.camel.activemq.TestEmbeddedBroker;
+import java.util.List;
+
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.interceptor.RollbackRuleAttribute;
+import org.springframework.transaction.interceptor.TransactionAttribute;
 
 /**
  * @author Brian Koehmstedt
  */
-public abstract class ActiveMQTestCase extends SpringTestCase {
-    private TestEmbeddedBroker testEmbeddedBroker;
+public interface ManagedThrowableTransactionTemplate extends TransactionAttribute {
+    PlatformTransactionManager getTransactionManager();
 
-    public void setUpActiveMQ(String springResourcesFile) throws Exception {
-        /* Start-up the broker before creating the Spring context so that
-         * other things instantiated via Spring don't try to start their own
-         * embedded broker when they first see the embedded broker URL. */
-        this.testEmbeddedBroker = new TestEmbeddedBroker();
-        testEmbeddedBroker.startUpBroker();
+    void setTransactionManager(PlatformTransactionManager transactionManager);
 
-        setUpSpring(springResourcesFile);
-    }
+    <T> T execute(ThrowableTransactionCallback<T> action) throws Throwable;
 
-    public TestEmbeddedBroker getEmbeddedBroker() {
-        assertNotNull(testEmbeddedBroker);
-        return testEmbeddedBroker;
-    }
+    List<RollbackRuleAttribute> getRollbackRules();
+
+    void setRollbackRules(List<RollbackRuleAttribute> rollbackRules);
 }

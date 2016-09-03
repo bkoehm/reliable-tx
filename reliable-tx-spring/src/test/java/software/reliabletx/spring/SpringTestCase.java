@@ -14,11 +14,14 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.camel;
+package software.reliabletx.spring;
 
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.SimpleDriverDataSource;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import junit.framework.TestCase;
 
@@ -27,6 +30,9 @@ import junit.framework.TestCase;
  */
 public abstract class SpringTestCase extends TestCase {
     private ClassPathXmlApplicationContext springContext;
+    protected SimpleDriverDataSource dataSource;
+    protected DataSourceTransactionManager transactionManager;
+    protected TestTransactionalBean testBean;
 
     public void setUpSpring(String springResourcesFile) {
         /* Initialize a Spring context using an application context
@@ -52,5 +58,39 @@ public abstract class SpringTestCase extends TestCase {
     public <T> T getBean(String name, Class<T> requiredType) throws BeansException {
         assertNotNull(springContext);
         return springContext.getBean(name, requiredType);
+    }
+
+    @Override
+    public void setUp() throws Exception {
+        setUpSpring("resources.xml");
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.initSynchronization();
+        }
+        assertTrue(TransactionSynchronizationManager.isSynchronizationActive());
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+
+        this.dataSource = getBean("dataSource", SimpleDriverDataSource.class);
+        assertNotNull(dataSource);
+
+        this.transactionManager = getBean("transactionManager", DataSourceTransactionManager.class);
+        assertNotNull(transactionManager);
+
+        this.testBean = getBean("testBean", TestTransactionalBean.class);
+        assertNotNull(testBean);
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        testBean.cleanUp();
+        stopSpringContext();
+    }
+
+    protected TestTransactionSynchronization getStandardSynchronization() {
+        return new TestTransactionSynchronization();
+    }
+
+    protected void assertNoTransaction(SimpleDriverDataSource dataSource) {
+        assertFalse(TransactionSynchronizationManager.isActualTransactionActive());
+        assertNull(TransactionSynchronizationManager.getResource(dataSource));
     }
 }

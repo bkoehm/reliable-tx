@@ -39,12 +39,15 @@ import software.reliabletx.spring.ManagedSpringTransactionImpl;
 /**
  * Build the start of a reliably transacted Camel route for a consumer.
  *
+ * <p>
  * Both {@link ErrorResponseMode#EXCEPTION_AS_REPLY} and
  * {@link ErrorResponseMode#EXCHANGE_FAILURE_NO_REPLY} modes can be used for
  * InOut exchange patterns.
  * {@link ErrorResponseMode#EXCHANGE_FAILURE_NO_REPLY} mode should be used
  * for an <i>InOnly</i> pattern.
+ * </p>
  *
+ * <p>
  * Example: <code>
  * ReliableTxConsumerBuilder consumerBuilder = new ReliableTxConsumerBuilder();
  *
@@ -62,14 +65,15 @@ import software.reliabletx.spring.ManagedSpringTransactionImpl;
  *     return routeBuilder;
  * }
  * </code>
+ * </p>
  *
  * @author Brian Koehmstedt
  */
 public class ReliableTxConsumerBuilder {
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    final Logger log = LoggerFactory.getLogger(getClass());
 
     private String transactionPolicyRefName;
-    private AbstractPlatformTransactionManager transactionManager;
+    protected AbstractPlatformTransactionManager transactionManager;
 
     public ReliableTxConsumerBuilder() {
     }
@@ -88,7 +92,7 @@ public class ReliableTxConsumerBuilder {
 
     public ProcessorDefinition<?> from(Endpoint origin, final ErrorResponseMode errorHandlingMode,
             SpringRouteBuilder routeBuilder) throws Exception {
-        assert transactionPolicyRefName != null;
+        assertWithException(transactionPolicyRefName != null);
         return routeBuilder.from(origin)
                 // onException(ReliableTxCamelException.class)
                 /* This is here to preempt the general onException handling
@@ -120,8 +124,8 @@ public class ReliableTxConsumerBuilder {
 
                         ManagedSpringTransaction managedTx = exchange.getProperty("managedTx",
                                 ManagedSpringTransaction.class);
-                        assert managedTx != null;
-                        assert managedTx.getTxStatus() != null;
+                        assertWithException(managedTx != null);
+                        assertWithException(managedTx.getTransactionStatus() != null);
 
                         if (managedTx.isRollbackOnly()) {
                             log.debug("Managed transaction for this exchange has already been marked as rollback-only");
@@ -140,8 +144,8 @@ public class ReliableTxConsumerBuilder {
                     public void process(Exchange exchange) throws Exception {
                         ManagedSpringTransaction managedTx = exchange.getProperty("managedTx",
                                 ManagedSpringTransaction.class);
-                        assert managedTx != null;
-                        assert managedTx.getTxStatus() != null;
+                        assertWithException(managedTx != null);
+                        assertWithException(managedTx.getTransactionStatus() != null);
 
                         String originalTxName = exchange.getProperty("originalTxName", String.class);
 
@@ -209,7 +213,7 @@ public class ReliableTxConsumerBuilder {
 
                         /* originalTx has been restored. All is well. */
 
-                        assert TransactionSynchronizationManager.isActualTransactionActive();
+                        assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
                         if (log.isDebugEnabled()) {
                             log.debug("originalTx has been restored.  All should be well with sending the reply.");
                         }
@@ -265,7 +269,7 @@ public class ReliableTxConsumerBuilder {
                          * tx. */
 
                         /* There should be an existing tx. */
-                        assert TransactionSynchronizationManager.isActualTransactionActive();
+                        assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
                         Integer isolationLevel = TransactionSynchronizationManager
                                 .getCurrentTransactionIsolationLevel();
 
@@ -273,7 +277,7 @@ public class ReliableTxConsumerBuilder {
                                 TransactionSynchronizationManager.getCurrentTransactionName());
 
                         TransactionStatus originalTxStatus = getMandatoryCurrentTransactionStatus();
-                        assert !originalTxStatus.isCompleted();
+                        assertWithException(!originalTxStatus.isCompleted());
                         exchange.setProperty("originalTxStatus", originalTxStatus);
 
                         /* Short-circuit the current tx by creating a new one
@@ -290,10 +294,11 @@ public class ReliableTxConsumerBuilder {
                         if (log.isTraceEnabled()) {
                             log.trace("using txName " + txName);
                         }
+                        managedTx.setTransactionName(txName);
 
                         /* This will suspend the existing transaction and
                          * start our own explicit-managed transaction. */
-                        managedTx.beginTransaction(txName);
+                        managedTx.beginTransaction();
 
                         /* this managed transaction belongs to this exchange */
                         exchange.setProperty("managedTx", managedTx);
@@ -301,8 +306,8 @@ public class ReliableTxConsumerBuilder {
                         /* We compare the old and new isolation levels to
                          * make sure they are the same. */
                         if (isolationLevel != null) {
-                            assert isolationLevel
-                                    .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel());
+                            assertWithException(isolationLevel
+                                    .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel()));
                         }
                     }
                 })
@@ -328,5 +333,11 @@ public class ReliableTxConsumerBuilder {
     protected TransactionStatus getMandatoryCurrentTransactionStatus() {
         return transactionManager
                 .getTransaction(new DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_MANDATORY));
+    }
+
+    protected static void assertWithException(boolean condition) throws RuntimeException {
+        if (!condition) {
+            throw new RuntimeException("assertion failed");
+        }
     }
 }

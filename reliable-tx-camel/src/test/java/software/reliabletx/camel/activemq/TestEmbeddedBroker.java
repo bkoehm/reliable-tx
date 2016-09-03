@@ -48,7 +48,7 @@ import org.apache.log4j.Logger;
 public class TestEmbeddedBroker {
     public static final String AMQ_VM = "vm://localhost?broker.persistent=false&broker.useJmx=false";
 
-    private Logger log = Logger.getLogger(TestEmbeddedBroker.class);
+    protected Logger log = Logger.getLogger(TestEmbeddedBroker.class);
     private BrokerService brokerService;
 
     private List<Connection> consumerConnections = new LinkedList<Connection>();
@@ -130,7 +130,7 @@ public class TestEmbeddedBroker {
      * @param name
      *            Queue or topic name.
      * 
-     * @throws Exception
+     * @throws Exception If there is a problem retrieving the Destination object.
      */
     public Set<org.apache.activemq.broker.region.Destination> getDestinationsByQueueName(String name) throws Exception {
         return brokerService.getBroker().getDestinations(new ActiveMQQueue(name));
@@ -151,7 +151,7 @@ public class TestEmbeddedBroker {
      * Sets up a consumer for a DLQ that just prints out the dead message to
      * the log.
      * 
-     * @throws JMSException
+     * @throws JMSException If there is a problem setting up the consumer.
      */
     public void setUpDlqConsumer(final String dlqName) throws JMSException {
         Connection connection = getNewJmsConnection();

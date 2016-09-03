@@ -16,6 +16,7 @@
  */
 package software.reliabletx.spring;
 
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 
 /**
@@ -29,31 +30,37 @@ import org.springframework.transaction.TransactionStatus;
  * @author Brian Koehmstedt
  */
 public interface ManagedSpringTransaction {
-    public void beginTransaction(String txName) throws IllegalStateException;
+    void beginTransaction() throws IllegalStateException;
 
-    public boolean isStarted();
+    boolean isStarted();
 
-    public String getTransactionName();
+    boolean isCurrentAndActive() throws IllegalStateException;
 
-    public boolean isCurrentAndActive() throws IllegalStateException;
+    boolean isCurrentAndActiveAndNotRollbackOnly() throws IllegalStateException;
 
-    public boolean isCurrentAndActiveAndNotRollbackOnly() throws IllegalStateException;
+    TransactionStatus getTransactionStatus();
 
-    public TransactionStatus getTxStatus();
+    SynchronizationState getSynchronizationState();
 
-    public SynchronizationState getSynchronizationState();
+    void commit() throws IllegalStateException;
 
-    public void commit() throws IllegalStateException;
+    void rollback() throws IllegalStateException;
 
-    public void rollback() throws IllegalStateException;
+    boolean isRollbackOnly() throws IllegalStateException;
 
-    public boolean isRollbackOnly() throws IllegalStateException;
+    void markRollbackOnly() throws IllegalStateException;
 
-    public void markRollbackOnly() throws IllegalStateException;
+    boolean isSynchronizationSupported();
 
-    public boolean isSynchronizationSupported();
+    boolean isCommitted() throws IllegalStateException;
 
-    public boolean isCommitted() throws IllegalStateException;
+    boolean isRolledBack() throws IllegalStateException;
 
-    public boolean isRolledBack() throws IllegalStateException;
+    TransactionDefinition getTransactionDefinition();
+
+    void setTransactionDefinition(TransactionDefinition transactionDefinition);
+
+    String getTransactionName();
+
+    void setTransactionName(String txName);
 }

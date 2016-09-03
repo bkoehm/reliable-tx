@@ -24,33 +24,49 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.AlternativeJdkIdGenerator;
+import org.springframework.util.IdGenerator;
 
 /**
  * Primarily ensures that when a {@link #commit()} or {@link #rollback()} is
  * called, the managed transaction is still the current transaction.
  * 
+ * <p>
  * More specifically, this implementation adds the following semantics to a
  * standard Spring transaction:
+ * </p>
  * 
  * <ul>
+ * 
  * <li>Although not absolutely required, for reliable transactions the Spring
  * transaction manager in use should extend
- * <code>AbstractPlatformTransactionManager</code> and it should be using
- * synchronization: <code>SYNCHRONIZATION_ALWAYS</code> or
- * <code>SYNCHRONIZATION_ON_ACTUAL_TRANSACTION</code>.</li>
- * <li>{@link #beginTransaction(String)} must be called to start the
- * transaction. A transaction name must be provided. While the name should be
- * a unique string per transaction, this implementation does not enforce that
- * uniqueness.</li>
- * <li>When {@link #beginTransaction(String)} is called, a new transaction is
- * forced with <code>TransactionDefinition.PROPAGATION_REQUIRES_NEW</code>
+ * {@link AbstractPlatformTransactionManager} and synchronization should be
+ * enabled with:
+ * {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ALWAYS} or
+ * {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ON_ACTUAL_TRANSACTION}
+ * . Additionally, for synchronization to be enabled,
+ * {@link TransactionSynchronizationManager#initSynchronization()} must have
+ * been called.</li>
+ * 
+ * <li>If a transaction name has not specified by the caller before
+ * {@link #beginTransaction()} has been called, then a random transaction
+ * name is generated and can be retrieved with {@link #getTransactionName()}
+ * after {@link #beginTransaction()} has been called.</li>
+ * 
+ * <li>{@link #beginTransaction()} must be called to start the transaction.
+ * </li>
+ * 
+ * <li>When {@link #beginTransaction()} is called, a new transaction is
+ * forced with {@link TransactionDefinition#PROPAGATION_REQUIRES_NEW}
  * semantics. If the transaction manager supports it and if there is an
  * existing transaction already established, it will be suspended (which will
  * be later resumed upon commit or rollback of this new transaction).</li>
+ * 
  * <li>When {@link #commit()} or {@link #rollback()} is called, this
  * implementation guarantees (if synchronization is enabled) that this
  * managed transaction is still the current transaction within the
- * transaction manager.</li>
+ * transaction manager before commencement of the commit or rollback.</li>
+ * 
  * </ul>
  * 
  * @author Brian Koehmstedt
@@ -58,6 +74,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
+
+    private static final AlternativeJdkIdGenerator idGenerator = new AlternativeJdkIdGenerator();
 
     /* General Notes
      * 
@@ -79,11 +97,12 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
     private PlatformTransactionManager _transactionManager;
     private TransactionStatus _txStatus;
     private SpringTransactionSynchronization _synchronization;
-    private String _txName;
     /* if true, transaction manager must support synchronization and have it
      * set to something other than SYNCHRONIZATION_NEVER */
     private boolean _isSynchronizationEnforced = true;
     private volatile boolean _isStarted;
+    private DefaultTransactionDefinition _transactionDefinition = new DefaultTransactionDefinition(
+            TransactionDefinition.PROPAGATION_REQUIRES_NEW);
 
     public ManagedSpringTransactionImpl() {
     }
@@ -93,19 +112,33 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
      * an instance of AbstractPlatformTransactionManager.
      */
     public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager) {
-        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager));
+        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager), null);
+    }
+
+    public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager, TransactionDefinition def) {
+        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager), def);
+    }
+
+    public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager, String txName) {
+        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager), null);
+        setTransactionName(txName);
     }
 
     public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager,
-            boolean isSynchronizationEnforced) {
+            boolean isSynchronizationEnforced, TransactionDefinition def) {
         setSynchronizationEnforced(isSynchronizationEnforced);
         setTransactionManager(transactionManager);
+        if (def != null) {
+            setTransactionDefinition(def);
+        }
     }
 
-    public TransactionStatus getTxStatus() {
+    @Override
+    public TransactionStatus getTransactionStatus() {
         return _txStatus;
     }
 
+    @Override
     public boolean isStarted() {
         return _isStarted;
     }
@@ -114,6 +147,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         return _synchronization;
     }
 
+    @Override
     public SynchronizationState getSynchronizationState() {
         return (getSynchronization() != null ? getSynchronization().getState() : SynchronizationState.NOT_SUPPORTED);
     }
@@ -134,17 +168,33 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         this._isSynchronizationEnforced = isSynchronizationEnforced;
     }
 
+    @Override
+    public TransactionDefinition getTransactionDefinition() {
+        return _transactionDefinition;
+    }
+
+    @Override
+    public void setTransactionDefinition(TransactionDefinition transactionDefinition) {
+        if (transactionDefinition.getPropagationBehavior() != TransactionDefinition.PROPAGATION_REQUIRES_NEW) {
+            throw new IllegalArgumentException("The only supported propagation behavior is PROPAGATION_REQUIRES_NEW");
+        }
+        _transactionDefinition.setIsolationLevel(transactionDefinition.getIsolationLevel());
+        _transactionDefinition.setName(transactionDefinition.getName());
+        _transactionDefinition.setTimeout(transactionDefinition.getTimeout());
+        _transactionDefinition.setReadOnly(transactionDefinition.isReadOnly());
+    }
+
+    @Override
+    public void setTransactionName(String txName) {
+        ((DefaultTransactionDefinition) getTransactionDefinition()).setName(txName);
+    }
+
+    @Override
     public String getTransactionName() {
-        return _txName;
+        return getTransactionDefinition().getName();
     }
 
-    protected TransactionDefinition getPropagationRequiresNewTransactionDefinition(String txName) {
-        DefaultTransactionDefinition txDef = new DefaultTransactionDefinition(
-                TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        txDef.setName(txName);
-        return txDef;
-    }
-
+    @Override
     public boolean isSynchronizationSupported() {
         return (getTransactionManager() instanceof AbstractPlatformTransactionManager)
                 && (((AbstractPlatformTransactionManager) getTransactionManager())
@@ -160,40 +210,46 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         }
     }
 
-    public synchronized void beginTransaction(String txName) throws IllegalStateException {
+    @Override
+    public synchronized void beginTransaction() throws IllegalStateException {
         if (isStarted()) {
             throw new IllegalStateException("This transaction has already begun");
         }
-        assert txName != null;
-        if (log.isTraceEnabled())
-            log.trace("creating new tx using txName=" + txName);
 
         assertSynchronizationEnforced();
 
-        /* Start the new transaction. */
-        TransactionDefinition txDef = getPropagationRequiresNewTransactionDefinition(txName);
+        if (getTransactionName() == null) {
+            setTransactionName(getUniqueTransactionName());
+        }
 
-        /* Confirm we're in a new-transaction state. */
-        initNewTransactionDefinition(txDef);
+        if (log.isTraceEnabled()) {
+            log.trace("creating new tx using txName=" + getTransactionName());
+        }
+
+        /* Use the configured transactionDefinition that must be for a new
+         * transaction. */
+        DefaultTransactionDefinition txDef = (DefaultTransactionDefinition) getTransactionDefinition();
+
+        /* Establish a new transaction status. */
+        initNewTransactionFromTransactionDefinition(txDef);
 
         /* If synchronization is supported, add a synchronization callback
          * object. */
-        initNewSynchronization(txName);
+        initNewSynchronization(txDef.getName());
 
-        this._txName = txName;
         this._isStarted = true;
     }
 
-    private void initNewTransactionDefinition(TransactionDefinition txDef) {
+    private void initNewTransactionFromTransactionDefinition(TransactionDefinition txDef) {
         this._txStatus = getTransactionManager().getTransaction(txDef);
-        assert _txStatus.isNewTransaction();
+        assertWithException(_txStatus.isNewTransaction());
     }
 
     private void initNewSynchronization(String txName) {
         if (isSynchronizationSupported()) {
-            assert TransactionSynchronizationManager.isSynchronizationActive();
-            assert TransactionSynchronizationManager.isActualTransactionActive();
-            assert txName.equals(TransactionSynchronizationManager.getCurrentTransactionName());
+            assertWithException(TransactionSynchronizationManager.isSynchronizationActive());
+            assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
+            assertWithException(txName.equals(TransactionSynchronizationManager.getCurrentTransactionName()));
 
             /* Initialize the synchronization object that belongs to this
              * transaction. */
@@ -212,82 +268,112 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         }
     }
 
+    @Override
     public boolean isCurrentAndActive() throws IllegalStateException {
         assertBegun();
         if (isSynchronizationSupported()) {
-            return !getTxStatus().isCompleted()
+            return !getTransactionStatus().isCompleted()
                     && getSynchronization().isTransactionCurrentAndActive(getTransactionName());
         } else {
             /* since synchronization is not supported, all we have to go on
              * is txStatus.isCompleted */
-            return !getTxStatus().isCompleted();
+            return !getTransactionStatus().isCompleted();
         }
     }
 
     public void assertCurrentAndActive() throws IllegalStateException {
-        assert isCurrentAndActive();
+        assertWithException(isCurrentAndActive());
     }
 
+    @Override
     public boolean isCurrentAndActiveAndNotRollbackOnly() throws IllegalStateException {
-        return isCurrentAndActive() && !getTxStatus().isRollbackOnly();
+        return isCurrentAndActive() && !getTransactionStatus().isRollbackOnly();
     }
 
     public void assertCurrentAndActiveAndNotRollbackOnly() throws IllegalStateException {
-        assert isCurrentAndActiveAndNotRollbackOnly();
+        assertWithException(isCurrentAndActiveAndNotRollbackOnly());
     }
 
+    @Override
     public boolean isRollbackOnly() {
-        return getTxStatus().isRollbackOnly();
+        return getTransactionStatus().isRollbackOnly();
     }
 
+    @Override
     public void markRollbackOnly() {
         assertCurrentAndActive();
-        getTxStatus().setRollbackOnly();
-        if (log.isTraceEnabled())
+        getTransactionStatus().setRollbackOnly();
+        if (log.isTraceEnabled()) {
             log.trace("marked as rollback-only");
+        }
     }
 
+    @Override
     public void commit() throws IllegalStateException {
-        if (getTxStatus().isRollbackOnly()) {
-            if (log.isTraceEnabled())
+        if (getTransactionStatus().isRollbackOnly()) {
+            if (log.isTraceEnabled()) {
                 log.trace("marked as rollback-only so rolling back instead of committing");
+            }
             rollback();
         } else {
             assertCurrentAndActive();
-            if (log.isTraceEnabled())
+            if (log.isTraceEnabled()) {
                 log.trace("committing");
-            getTransactionManager().commit(getTxStatus());
-            assert getTxStatus().isCompleted();
-            if (log.isTraceEnabled())
+            }
+            getTransactionManager().commit(getTransactionStatus());
+            assertWithException(getTransactionStatus().isCompleted());
+            if (log.isTraceEnabled()) {
                 log.trace("done with commit");
+            }
             if (isSynchronizationSupported()) {
-                assert isCommitted();
+                assertWithException(isCommitted());
             }
         }
     }
 
+    @Override
     public void rollback() throws IllegalStateException {
         assertCurrentAndActive();
-        if (log.isTraceEnabled())
+        if (log.isTraceEnabled()) {
             log.trace("rolling back");
-        getTransactionManager().rollback(getTxStatus());
-        assert getTxStatus().isCompleted();
-        if (log.isTraceEnabled())
+        }
+        getTransactionManager().rollback(getTransactionStatus());
+        assertWithException(getTransactionStatus().isCompleted());
+        if (log.isTraceEnabled()) {
             log.trace("done with rollback");
+        }
         if (isSynchronizationSupported()) {
-            assert isRolledBack();
+            assertWithException(isRolledBack());
         }
     }
 
+    @Override
     public boolean isCommitted() throws IllegalStateException {
-        if (!isSynchronizationSupported())
+        if (!isSynchronizationSupported()) {
             throw new IllegalStateException("Synchronization is not supported for this transaction manager");
+        }
         return getSynchronization().getState().equals(SynchronizationState.COMMITTED);
     }
 
+    @Override
     public boolean isRolledBack() throws IllegalStateException {
-        if (!isSynchronizationSupported())
+        if (!isSynchronizationSupported()) {
             throw new IllegalStateException("Synchronization is not supported for this transaction manager");
+        }
         return getSynchronization().getState().equals(SynchronizationState.ROLLED_BACK);
+    }
+
+    protected static IdGenerator getIdGenerator() {
+        return idGenerator;
+    }
+
+    protected static String getUniqueTransactionName() {
+        return getIdGenerator().generateId().toString();
+    }
+
+    private static void assertWithException(boolean condition) throws RuntimeException {
+        if (!condition) {
+            throw new RuntimeException("assertion failed");
+        }
     }
 }

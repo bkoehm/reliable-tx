@@ -45,7 +45,7 @@ import software.reliabletx.camel.activemq.QueueStatistics;
  * @author Brian Koehmstedt
  */
 public class JtaTransactionTest extends ActiveMQTestCase {
-    private Logger log = LoggerFactory.getLogger(getClass());
+    protected Logger log = LoggerFactory.getLogger(getClass());
 
     private static final int WAIT_FOR_REPLY_TIMEOUT = 5000; // milliseconds
 
@@ -53,14 +53,14 @@ public class JtaTransactionTest extends ActiveMQTestCase {
     private static final String testFailingConsumerWithReplyExceptionsTransactedQueueName = "testFailingConsumerWithReplyExceptionsTransactedQueue";
     private static final String testFailingConsumerWithExchangeFailuresTransactedQueueName = "testFailingConsumerWithExchangeFailuresTransactedQueue";
 
-    private Endpoint testTransactedQueueEndpoint;
-    private Endpoint testTransactedQueueEndpointForProducer;
+    protected Endpoint testTransactedQueueEndpoint;
+    protected Endpoint testTransactedQueueEndpointForProducer;
 
-    private Endpoint testFailingConsumerWithReplyExceptionsTransactedQueueEndpoint;
-    private Endpoint testFailingConsumerWithExchangeFailuresTransactedQueueEndpoint;
+    protected Endpoint testFailingConsumerWithReplyExceptionsTransactedQueueEndpoint;
+    protected Endpoint testFailingConsumerWithExchangeFailuresTransactedQueueEndpoint;
 
-    private Endpoint testFailingConsumerWithReplyExceptionsTransactedQueueEndpointForProducer;
-    private Endpoint testFailingConsumerWithExchangeFailuresTransactedQueueEndpointForProducer;
+    protected Endpoint testFailingConsumerWithReplyExceptionsTransactedQueueEndpointForProducer;
+    protected Endpoint testFailingConsumerWithExchangeFailuresTransactedQueueEndpointForProducer;
 
     protected DefaultCamelContext getCamelContext() {
         return getBean("jtaCamelContext", DefaultCamelContext.class);

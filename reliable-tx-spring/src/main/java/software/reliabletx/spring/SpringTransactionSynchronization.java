@@ -22,15 +22,13 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * An implementation of a Spring <code>TransactionSynchronization</code> that
+ * An implementation of a Spring {@link TransactionSynchronization} that
  * tracks transaction state throughout the lifecycle of the transaction.
  * 
  * @author Brian Koehmstedt
  */
 public class SpringTransactionSynchronization implements TransactionSynchronization, Serializable {
     private static final long serialVersionUID = 352975547922387276L;
-    // private final transient Logger log =
-    // LoggerFactory.getLogger(getClass());
 
     private SynchronizationState state;
     private String txName;
@@ -45,8 +43,8 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
     }
 
     public void init() {
-        assert TransactionSynchronizationManager.isSynchronizationActive();
-        assert TransactionSynchronizationManager.isActualTransactionActive();
+        assertWithException(TransactionSynchronizationManager.isSynchronizationActive());
+        assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
         this.txName = TransactionSynchronizationManager.getCurrentTransactionName();
         this.state = SynchronizationState.ACTIVE;
     }
@@ -61,7 +59,7 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
     }
 
     public void assertTransactionCurrent() {
-        assert isTransactionCurrent();
+        assertWithException(isTransactionCurrent());
     }
 
     public boolean isTransactionCurrentAndActive() {
@@ -75,7 +73,7 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
     }
 
     public void assertTransactionCurrentAndActive() {
-        assert isTransactionCurrentAndActive();
+        assertWithException(isTransactionCurrentAndActive());
     }
 
     @Override
@@ -92,6 +90,7 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
 
     @Override
     public void flush() {
+        // no-op
     }
 
     @Override
@@ -127,5 +126,11 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
 
     public SynchronizationState getState() {
         return state;
+    }
+
+    private static void assertWithException(boolean condition) throws RuntimeException {
+        if (!condition) {
+            throw new RuntimeException("assertion failed");
+        }
     }
 }

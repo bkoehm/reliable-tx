@@ -14,28 +14,15 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.camel;
+package software.reliabletx.spring;
 
-import software.reliabletx.camel.activemq.TestEmbeddedBroker;
+import org.springframework.transaction.TransactionStatus;
 
 /**
  * @author Brian Koehmstedt
+ * 
+ * @param <T> The return type of the callback.
  */
-public abstract class ActiveMQTestCase extends SpringTestCase {
-    private TestEmbeddedBroker testEmbeddedBroker;
-
-    public void setUpActiveMQ(String springResourcesFile) throws Exception {
-        /* Start-up the broker before creating the Spring context so that
-         * other things instantiated via Spring don't try to start their own
-         * embedded broker when they first see the embedded broker URL. */
-        this.testEmbeddedBroker = new TestEmbeddedBroker();
-        testEmbeddedBroker.startUpBroker();
-
-        setUpSpring(springResourcesFile);
-    }
-
-    public TestEmbeddedBroker getEmbeddedBroker() {
-        assertNotNull(testEmbeddedBroker);
-        return testEmbeddedBroker;
-    }
+public interface ThrowableTransactionCallback<T> {
+    T doInTransaction(TransactionStatus status) throws Throwable;
 }
