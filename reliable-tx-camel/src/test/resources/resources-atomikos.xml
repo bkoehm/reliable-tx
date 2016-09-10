@@ -7,7 +7,49 @@
            http://www.springframework.org/schema/tx
            http://www.springframework.org/schema/tx/spring-tx.xsd">
 
-    <tx:annotation-driven transaction-manager="txManager" />
+    <tx:annotation-driven transaction-manager="jtaTransactionManager" />
+
+    <!-- BEGIN GENERAL ATOMIKOS CONFIGURATION -->
+
+    <!-- Atomikos transaction service. This will initialize such that TransactionManagerImp.getTransactionManager() 
+        will not return null. -->
+    <bean id="atomikosUserTransactionService" class="com.atomikos.icatch.config.UserTransactionServiceImp"
+        init-method="init" destroy-method="shutdownForce" />
+
+    <!-- Construct Atomikos UserTransactionManager, needed to configure Spring. 
+        Note that UserTransactionManager delegates to TransactionManagerImp.getTransactionManager(). 
+        We leave "TransactionManager" out of the name of the bean because some frameworks 
+        (Grails, for example) look for beans with "TransactionManager" in the name 
+        and expect to find a Spring transaction manager. -->
+    <bean id="atomikosUTM" class="com.atomikos.icatch.jta.UserTransactionManager"
+        init-method="init" destroy-method="close"
+        depends-on="atomikosUserTransactionService">
+
+        <property name="startupTransactionService" value="false" />
+
+        <!-- when close is called, should we force transactions to terminate 
+            or not? -->
+        <property name="forceShutdown" value="false" />
+    </bean>
+
+    <!-- Also use Atomikos UserTransactionImp, needed to configure Spring -->
+    <bean id="atomikosUserTransaction" class="com.atomikos.icatch.jta.UserTransactionImp"
+        depends-on="atomikosUserTransactionService">
+        <property name="transactionTimeout" value="300" />
+    </bean>
+
+    <!-- Configure the Spring framework to use JTA transactions from Atomikos -->
+    <bean id="jtaTransactionManager"
+        class="org.springframework.transaction.jta.JtaTransactionManager">
+
+        <!-- UserTransactionManager delegates to TransactionManagerImp.getTransactionManager() -->
+        <property name="transactionManager" ref="atomikosUTM" />
+
+        <property name="userTransaction" ref="atomikosUserTransaction" />
+    </bean>
+
+    <!-- END GENERAL ATOMIKOS CONFIGURATION -->
+
 
     <!-- request/reply message producers (at least using temporary queues) 
         can't be transactional. See TemporaryQueueReplyManager.createListenerContainer() 
@@ -70,33 +112,6 @@
         <property name="redeliveryPolicy" ref="redeliveryPolicy" />
         <property name="springTransactionPolicy" ref="CAMEL_PROPAGATION_REQUIRED" />
         <property name="transactionTemplate" ref="transactionTemplate" />
-    </bean>
-
-    <!-- Construct Atomikos UserTransactionManager, needed to configure Spring -->
-    <!-- TODO: Doesn't seem to be used. UserTransaction seems to end up using 
-        a different txMgr. Is it instantiated/configured right? -->
-    <bean id="AtomikosTransactionManager" class="com.atomikos.icatch.jta.UserTransactionManager"
-        init-method="init" destroy-method="close">
-
-        <!-- when close is called, should we force transactions to terminate 
-            or not? -->
-        <property name="forceShutdown" value="false" />
-    </bean>
-
-    <!-- Also use Atomikos UserTransactionImp, needed to configure Spring -->
-    <bean id="AtomikosUserTransaction" class="com.atomikos.icatch.jta.UserTransactionImp">
-        <property name="transactionTimeout" value="300" />
-    </bean>
-
-    <!-- Configure the Spring framework to use JTA transactions from Atomikos -->
-    <bean id="jtaTransactionManager"
-        class="org.springframework.transaction.jta.JtaTransactionManager">
-
-        <!-- TODO: Doesn't seem to be used. UserTransaction seems to end 
-            up using a different txMgr. Is it instantiated/configured right? -->
-        <property name="transactionManager" ref="AtomikosTransactionManager" />
-
-        <property name="userTransaction" ref="AtomikosUserTransaction" />
     </bean>
 
     <!-- Camel Redelivery Policy -->
