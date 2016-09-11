@@ -31,6 +31,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.jdbc.datasource.ConnectionHolder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -38,9 +39,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * @author Brian Koehmstedt
  */
 public class TestTransactionalBean implements ApplicationContextAware {
+    private AbstractPlatformTransactionManager transactionManager;
     private DataSource dataSource;
 
     @Transactional
+    @TransactionName(name = "myTransaction")
     public void testTransaction(boolean throwCheckedException, TransactionSynchronization synchronization)
             throws Exception {
         assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
@@ -48,12 +51,33 @@ public class TestTransactionalBean implements ApplicationContextAware {
             TransactionSynchronizationManager.registerSynchronization(synchronization);
         }
         Connection conn = getCurrentConnection(dataSource);
-        createTable(conn);
         insertKey(conn, 1);
 
         if (throwCheckedException) {
             throw new Exception("purposely thrown exception");
         }
+    }
+
+    @Transactional
+    @TransactionName(name = "myTransaction")
+    public void runTransactionWithCorrectName(final TransactionSynchronization synchronization, Runnable runnable)
+            throws Exception {
+        assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+        if (synchronization != null) {
+            TransactionSynchronizationManager.registerSynchronization(synchronization);
+        }
+        runnable.run();
+    }
+
+    @Transactional
+    @TransactionName(name = "incorrectTransactionName")
+    public void runTransactionWithIncorrectName(final TransactionSynchronization synchronization, Runnable runnable)
+            throws Exception {
+        assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+        if (synchronization != null) {
+            TransactionSynchronizationManager.registerSynchronization(synchronization);
+        }
+        runnable.run();
     }
 
     public static void createTable(Connection conn) throws SQLException {
@@ -82,7 +106,10 @@ public class TestTransactionalBean implements ApplicationContextAware {
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.dataSource = applicationContext.getBean("dataSource", DataSource.class);
+        this.transactionManager = applicationContext.getBean("transactionManager",
+                AbstractPlatformTransactionManager.class);
         assertNotNull(dataSource);
+        assertNotNull(transactionManager);
     }
 
     public static int getRowCount(DataSource dataSource) throws SQLException {
@@ -100,6 +127,15 @@ public class TestTransactionalBean implements ApplicationContextAware {
             } finally {
                 ps.close();
             }
+        } finally {
+            connection.close();
+        }
+    }
+
+    public void init() throws SQLException {
+        Connection connection = dataSource.getConnection();
+        try {
+            createTable(connection);
         } finally {
             connection.close();
         }

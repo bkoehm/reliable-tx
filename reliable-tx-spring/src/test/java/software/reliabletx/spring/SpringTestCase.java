@@ -77,6 +77,8 @@ public abstract class SpringTestCase extends TestCase {
 
         this.testBean = getBean("testBean", TestTransactionalBean.class);
         assertNotNull(testBean);
+
+        testBean.init();
     }
 
     @Override

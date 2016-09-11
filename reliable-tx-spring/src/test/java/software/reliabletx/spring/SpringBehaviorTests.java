@@ -34,12 +34,25 @@ public class SpringBehaviorTests extends SpringTestCase {
 
     @Test
     public void testTransactionalAnnotationCommittingBehavior() throws Exception {
-        TestTransactionSynchronization synchronization = getStandardSynchronization();
+        final TestTransactionSynchronization synchronization = getStandardSynchronization();
 
         // We start fresh.
         assertNoTransaction(dataSource);
 
-        testBean.testTransaction(false, synchronization);
+        /**
+         * Call the method with the correct transaction name. See
+         * callRealTestTransaction() comments for why we do it this way.
+         */
+        testBean.runTransactionWithCorrectName(synchronization, new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    callRealTestTransaction(false);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
 
         // No transaction should be active since testTransaction() should
         // have committed since that method uses using Spring's AOP
@@ -80,7 +93,7 @@ public class SpringBehaviorTests extends SpringTestCase {
         }
 
         assertNotNull(exception);
-        assertTrue(exception.getMessage().equals("purposely thrown exception"));
+        assertEquals(exception.getMessage(), "purposely thrown exception");
 
         // We expect tx completion.
         assertNoTransaction(dataSource);
@@ -134,5 +147,57 @@ public class SpringBehaviorTests extends SpringTestCase {
         // We expect the synchronization callback to have recorded a
         // rollback.
         assertTrue(synchronization.wasRolledBack());
+    }
+
+    @Test
+    public void testTransactionalAnnotationWithIncorrectName() throws Exception {
+        final TestTransactionSynchronization synchronization = getStandardSynchronization();
+
+        // We start fresh.
+        assertNoTransaction(dataSource);
+
+        Exception exception = null;
+        try {
+            /**
+             * Call the method with the incorrect transaction name. See
+             * callRealTestTransaction() comments for why we do it this way.
+             */
+            testBean.runTransactionWithIncorrectName(synchronization, new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        callRealTestTransaction(false);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            });
+        } catch (Exception e) {
+            exception = e;
+        }
+
+        assertNotNull(exception);
+        final String expectedExceptionMessage = "org.springframework.transaction.TransactionUsageException: Specified propagation behavior supports an existing transaction but the existing transaction name of 'incorrectTransactionName' does not match the specified transaction name of 'myTransaction'";
+        assertEquals(exception.getMessage(), expectedExceptionMessage);
+
+        // We expect tx completion.
+        assertNoTransaction(dataSource);
+
+        // We expect no rows due to rollback.
+        assertTrue(TestTransactionalBean.getRowCount(dataSource) == 0);
+
+        // We expect the synchronization callback to have recorded a
+        // rollback.
+        assertTrue(synchronization.wasRolledBack());
+    }
+
+    /**
+     * We use a callback approach to calling testTransaction() from this
+     * class because Spring won't invoke the TransactionInterceptor for the
+     * second method call if one transactional method in the same class calls
+     * another.
+     */
+    final void callRealTestTransaction(boolean throwCheckedException) throws Exception {
+        testBean.testTransaction(throwCheckedException, null);
     }
 }
