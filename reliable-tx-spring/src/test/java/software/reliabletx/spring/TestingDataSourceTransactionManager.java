@@ -22,7 +22,7 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 /**
  * @author Brian Koehmstedt
  */
-public class ExtendedDataSourceTransactionManager extends DataSourceTransactionManager {
+public class TestingDataSourceTransactionManager extends DataSourceTransactionManager {
     private static final long serialVersionUID = -7145730577106059685L;
 
     boolean dumpStack = false;
