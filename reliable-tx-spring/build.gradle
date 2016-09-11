@@ -80,7 +80,7 @@ dependencies {
     compile "org.springframework:spring-core:$springVersion"
     compile "org.springframework:spring-tx:$springVersion"
     testCompile "org.springframework:spring-beans:$springVersion"
-    testCompile "org.springframework:spring-context:$springVersion"
+    compile "org.springframework:spring-context:$springVersion"
     testCompile "org.springframework:spring-jdbc:$springVersion"
 }
 
