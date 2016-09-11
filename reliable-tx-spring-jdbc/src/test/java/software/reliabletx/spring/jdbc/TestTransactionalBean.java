@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.spring;
+package software.reliabletx.spring.jdbc;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -34,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import software.reliabletx.spring.TransactionName;
 
 /**
  * @author Brian Koehmstedt

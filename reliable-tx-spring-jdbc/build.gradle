@@ -82,6 +82,9 @@ dependencies {
     testCompile "org.springframework:spring-beans:$springVersion"
     compile "org.springframework:spring-context:$springVersion"
     compile "org.springframework:spring-jdbc:$springVersion"
+    
+    // reliable-tx
+    compile project(":reliable-tx-spring")
 }
 
 jar { from "../LICENSE" }

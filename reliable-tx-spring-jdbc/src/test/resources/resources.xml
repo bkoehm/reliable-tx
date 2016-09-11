@@ -18,22 +18,15 @@
     </bean>
 
     <bean id="transactionManager"
-        class="software.reliabletx.spring.ExtendedDataSourceTransactionManager">
+        class="software.reliabletx.spring.jdbc.TestingDataSourceTransactionManager">
         <property name="dataSource" ref="dataSource" />
     </bean>
 
-    <bean id="testBean" class="software.reliabletx.spring.TestTransactionalBean" />
+    <bean id="testBean" class="software.reliabletx.spring.jdbc.TestTransactionalBean" />
 
+    <!-- overridden to gain @TransactionName support -->
     <bean
         id="org.springframework.transaction.annotation.AnnotationTransactionAttributeSource#0"
         class="software.reliabletx.spring.ExtendedAnnotationTransactionAttributeSource">
-    </bean>
-
-    <bean
-        id="org.springframework.transaction.interceptor.TransactionInterceptor#0"
-        class="software.reliabletx.spring.ExtendedTransactionInterceptor">
-        <property name="transactionAttributeSource"
-            ref="org.springframework.transaction.annotation.AnnotationTransactionAttributeSource#0" />
-        <property name="transactionManager" ref="transactionManager" />
     </bean>
 </beans>

@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.spring;
+package software.reliabletx.spring.jdbc;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -28,6 +28,10 @@ import org.springframework.transaction.interceptor.RollbackRuleAttribute;
 import org.springframework.transaction.interceptor.RuleBasedTransactionAttribute;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import software.reliabletx.spring.ManagedThrowableTransactionTemplateImpl;
+import software.reliabletx.spring.ManagedTransactionTemplateImpl;
+import software.reliabletx.spring.ThrowableTransactionCallback;
 
 /**
  * @author Brian Koehmstedt

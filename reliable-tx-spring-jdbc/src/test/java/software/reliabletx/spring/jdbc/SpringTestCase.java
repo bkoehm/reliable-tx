@@ -14,7 +14,7 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.spring;
+package software.reliabletx.spring.jdbc;
 
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;

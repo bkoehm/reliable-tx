@@ -14,15 +14,14 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.spring;
+package software.reliabletx.spring.jdbc;
 
-import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
 
 /**
  * @author Brian Koehmstedt
  */
-public class TestingDataSourceTransactionManager extends DataSourceTransactionManager {
+public class TestingDataSourceTransactionManager extends EnhancedDataSourceTransactionManager {
     private static final long serialVersionUID = -7145730577106059685L;
 
     boolean dumpStack = false;

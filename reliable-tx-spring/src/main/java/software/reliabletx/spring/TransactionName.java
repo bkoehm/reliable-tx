@@ -28,27 +28,28 @@ import java.lang.annotation.Target;
  * with {@link org.springframework.transaction.annotation.Transactional}.
  * Annotation at the class level means that all public methods of the class
  * are implicitly annotated. If this annotation is not supplied with a paired
- * {@code Transactional} annotation at the same location, then this
- * annotation will have no effect.
+ * {@code Transactional} annotation, then this annotation will have no
+ * effect.
  * 
  * <p>
  * This annotation is meant to be used with an overridden bean definition for
- * the {@code TransactionInterceptor} and
- * {@code AnnotationTransactionAttributeSource} beans. See
- * {@link ExtendedTransactionInterceptor} and
+ * the transaction manager and the
+ * {@code AnnotationTransactionAttributeSource} bean. See
+ * {@link EnhancedTransactionManagerUtil} and
  * {@link ExtendedAnnotationTransactionAttributeSource}.
  * </p>
  * 
  * <p>
- * <b>Important note:</b> When using this annotation with
- * {@link ExtendedTransactionInterceptor}, the interceptor won't get called
- * if a transactional method calls another in the same class instance. So the
- * transaction name check will only happen between method calls across
- * different class instances.
+ * <b>Important note:</b> When using this annotation with a transaction
+ * manager that utilizes
+ * {@link EnhancedTransactionManagerUtil#checkNewTransactionStatusForName(org.springframework.transaction.TransactionDefinition)}
+ * , the check name method won't get called if a transactional method calls
+ * another in the same class instance. So the transaction name check will
+ * only happen between method calls across different class instances.
  * </p>
  * 
  * @see org.springframework.transaction.annotation.Transactional
- * @see ExtendedTransactionInterceptor
+ * @see EnhancedTransactionManagerUtil
  * @see ExtendedAnnotationTransactionAttributeSource
  * 
  * @author Brian Koehmstedt
