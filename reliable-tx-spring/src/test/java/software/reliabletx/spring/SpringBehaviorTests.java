@@ -127,7 +127,6 @@ public class SpringBehaviorTests extends SpringTestCase {
                 TransactionSynchronizationManager.registerSynchronization(synchronization);
                 Connection conn = TestTransactionalBean.getCurrentConnection(dataSource);
                 try {
-                    TestTransactionalBean.createTable(conn);
                     TestTransactionalBean.insertKey(conn, 1);
                 } catch (SQLException e) {
                     throw new RuntimeException(e);
