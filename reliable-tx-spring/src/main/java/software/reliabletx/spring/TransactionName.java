@@ -42,7 +42,7 @@ import java.lang.annotation.Target;
  * <p>
  * <b>Important note:</b> When using this annotation with a transaction
  * manager that utilizes
- * {@link EnhancedTransactionManagerUtil#checkNewTransactionStatusForName(org.springframework.transaction.TransactionDefinition)}
+ * {@link EnhancedTransactionManagerUtil#checkNewTransactionStatusForName(org.springframework.transaction.TransactionDefinition, String)}
  * , the check name method won't get called if a transactional method calls
  * another in the same class instance. So the transaction name check will
  * only happen between method calls across different class instances.
@@ -63,4 +63,10 @@ public @interface TransactionName {
      * The name of the transaction. Required.
      */
     String name() default "";
+
+    /**
+     * If the propagation behavior supports suspending a current transaction,
+     * only suspend for current transactions with this name.  Optional.
+     */
+    String suspendOnly() default "";
 }

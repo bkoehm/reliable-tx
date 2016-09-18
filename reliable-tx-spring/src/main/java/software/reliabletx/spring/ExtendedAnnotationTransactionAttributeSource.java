@@ -29,6 +29,9 @@ import org.springframework.transaction.interceptor.RuleBasedTransactionAttribute
 import org.springframework.transaction.interceptor.TransactionAttribute;
 
 /**
+ * Extend Spring's {@link AnnotationTransactionAttributeSource} to add
+ * support for processing the {@link TransactionName} annotation.
+ * 
  * @author Brian Koehmstedt
  */
 public class ExtendedAnnotationTransactionAttributeSource extends AnnotationTransactionAttributeSource {
@@ -47,6 +50,9 @@ public class ExtendedAnnotationTransactionAttributeSource extends AnnotationTran
         private static final long serialVersionUID = 5958837260277006521L;
         private final Logger log = LoggerFactory.getLogger(getClass());
 
+        public static final String ATTR_NAME = "name";
+        public static final String ATTR_SUSPEND_ONLY = "suspendOnly";
+
         public ExtendedSpringTransactionAnnotationParser() {
             super();
         }
@@ -59,18 +65,9 @@ public class ExtendedAnnotationTransactionAttributeSource extends AnnotationTran
                 AnnotationAttributes transactionNameAttributes = AnnotatedElementUtils.getMergedAnnotationAttributes(ae,
                         TransactionName.class);
                 if (transactionNameAttributes != null) {
-                    String txName = transactionNameAttributes.getString("name");
-                    if (txName == null || txName.trim().length() == 0) {
-                        throw new IllegalArgumentException(
-                                "Attribute 'txName' is required to be present and not an empty string.");
-                    }
-                    if (transactionalAttributes.containsKey("name")
-                            && !transactionalAttributes.getString("name").equals(txName)) {
-                        log.warn(
-                                "Unexpected condition where @Transactional annotation attributes already contain a name attribute: "
-                                        + transactionalAttributes.getString("name"));
-                    }
-                    transactionalAttributes.putIfAbsent("name", txName);
+                    addTransactionalAttribute(transactionalAttributes, transactionNameAttributes, ATTR_NAME, true);
+                    addTransactionalAttribute(transactionalAttributes, transactionNameAttributes, ATTR_SUSPEND_ONLY,
+                            false);
                 }
                 return parseTransactionAnnotation(transactionalAttributes);
             } else {
@@ -80,10 +77,14 @@ public class ExtendedAnnotationTransactionAttributeSource extends AnnotationTran
 
         @Override
         protected TransactionAttribute parseTransactionAnnotation(AnnotationAttributes attributes) {
-            RuleBasedTransactionAttribute txAttr = (RuleBasedTransactionAttribute) super.parseTransactionAnnotation(
-                    attributes);
-            if (attributes.containsKey("name")) {
-                txAttr.setName(attributes.getString("name"));
+            ExtendedRuleBasedTransactionAttribute txAttr = new ExtendedRuleBasedTransactionAttribute(
+                    (RuleBasedTransactionAttribute) super.parseTransactionAnnotation(attributes));
+            if (attributes.containsKey(ATTR_NAME) && attributes.getString(ATTR_NAME).trim().length() > 0) {
+                txAttr.setName(attributes.getString(ATTR_NAME));
+            }
+            if (attributes.containsKey(ATTR_SUSPEND_ONLY)
+                    && attributes.getString(ATTR_SUSPEND_ONLY).trim().length() > 0) {
+                txAttr.setSuspendOnly(attributes.getString(ATTR_SUSPEND_ONLY));
             }
             return txAttr;
         }
@@ -96,6 +97,25 @@ public class ExtendedAnnotationTransactionAttributeSource extends AnnotationTran
         @Override
         public int hashCode() {
             return ExtendedSpringTransactionAnnotationParser.class.hashCode();
+        }
+
+        protected void addTransactionalAttribute(AnnotationAttributes transactionalAttributes,
+                AnnotationAttributes transactionNameAttributes, String attrName, boolean isRequired) {
+            if (isRequired && (!transactionNameAttributes.containsKey(attrName)
+                    || transactionNameAttributes.getString(attrName).trim().length() == 0)) {
+                throw new IllegalArgumentException(
+                        "Attribute '" + attrName + "' is required and cannot be missing or be an empty string.");
+
+            }
+            if (transactionNameAttributes.containsKey(attrName)) {
+                String attrValue = transactionNameAttributes.getString(attrName);
+                if (transactionalAttributes.containsKey(attrName)
+                        && !transactionalAttributes.getString(attrName).equals(attrValue)) {
+                    log.warn("Unexpected condition where @Transactional annotation attributes already contain a '"
+                            + attrName + "' attribute: " + transactionalAttributes.getString(attrName));
+                }
+                transactionalAttributes.putIfAbsent(attrName, attrValue);
+            }
         }
     }
 }

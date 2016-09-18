@@ -199,4 +199,95 @@ public class SpringBehaviorTests extends SpringTestCase {
     final void callRealTestTransaction(boolean throwCheckedException) throws Exception {
         testBean.testTransaction(throwCheckedException, null);
     }
+
+    @Test
+    public void testTransactionalAnnotationSuspendingNameCheckBehavior() throws Exception {
+        final TestTransactionSynchronization synchronization = getStandardSynchronization();
+
+        // We start fresh.
+        assertNoTransaction(dataSource);
+
+        /**
+         * Call a suspendee method that will start a transaction that will be
+         * suspended by a call to another method with REQUIRES_NEW. See
+         * callRealSuspendeeTransaction() comments for why we do it this way.
+         */
+        assertTrue(TransactionSynchronizationManager.isSynchronizationActive());
+        testBean.suspendeeTransaction(synchronization, new Runnable() {
+            @Override
+            public void run() {
+                assertTrue(TransactionSynchronizationManager.isSynchronizationActive());
+                try {
+                    callRealSuspenderTransaction();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+
+        // "suspendee" was resumed, but that was completed too, so there
+        // should be no transaction active.
+        assertNoTransaction(dataSource);
+
+        // We expect one row to be inserted, confirming that the "suspender"
+        // transaction ran successfully.
+        assertTrue(TestTransactionalBean.getRowCount(dataSource) == 1);
+
+        // We expect the synchronization callback to have recorded a commit.
+        assertTrue(synchronization.wasCommitted());
+    }
+
+    @Test
+    public void testTransactionalAnnotationSuspendingIncorrectNameCheckBehavior() throws Exception {
+        final TestTransactionSynchronization synchronization = getStandardSynchronization();
+
+        // We start fresh.
+        assertNoTransaction(dataSource);
+
+        /**
+         * Call a suspendee method that will start a transaction that should
+         * throw an exception because it makes a call to another method with
+         * REQUIRES_NEW and a suspendOnly name that doesn't match
+         * suspendeeTransactionWithIncorrectName's transaction name. See
+         * callRealSuspendeeTransaction() comments for why we do it this way.
+         */
+        Exception exception = null;
+        try {
+            testBean.suspendeeTransactionWithIncorrectName(synchronization, new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        callRealSuspenderTransaction();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            });
+        } catch (Exception e) {
+            exception = e;
+        }
+
+        assertNotNull(exception);
+        final String expectedExceptionMessage = "org.springframework.transaction.TransactionUsageException: Specified propagation behavior supports suspending the current transaction but the current transaction name of 'incorrectSuspendee' does not match the specified 'suspendOnly' transaction name of 'suspendee'";
+        assertEquals(exception.getMessage(), expectedExceptionMessage);
+
+        assertNoTransaction(dataSource);
+
+        // We expect no rows inserted.
+        assertTrue(TestTransactionalBean.getRowCount(dataSource) == 0);
+
+        // We expect the synchronization callback to have recorded a
+        // rollback.
+        assertTrue(synchronization.wasRolledBack());
+    }
+
+    /**
+     * We use a callback approach to calling suspenderTransaction() from this
+     * class because Spring won't invoke the TransactionInterceptor for the
+     * second method call if one transactional method in the same class calls
+     * another.
+     */
+    final void callRealSuspenderTransaction() throws Exception {
+        testBean.suspenderTransaction(null);
+    }
 }

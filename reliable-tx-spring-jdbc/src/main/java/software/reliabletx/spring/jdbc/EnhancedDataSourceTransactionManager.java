@@ -18,9 +18,11 @@ package software.reliabletx.spring.jdbc;
 
 import javax.sql.DataSource;
 
+import org.springframework.core.NamedThreadLocal;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import software.reliabletx.spring.EnhancedTransactionManagerUtil;
 
@@ -30,6 +32,8 @@ import software.reliabletx.spring.EnhancedTransactionManagerUtil;
 public class EnhancedDataSourceTransactionManager extends DataSourceTransactionManager {
 
     private static final long serialVersionUID = 2483003329861737163L;
+    private ThreadLocal<String> suspendedTransactionName = new NamedThreadLocal<String>(
+            "Last suspended transaction name");
 
     public EnhancedDataSourceTransactionManager() {
         super();
@@ -50,9 +54,24 @@ public class EnhancedDataSourceTransactionManager extends DataSourceTransactionM
     @Override
     protected DefaultTransactionStatus newTransactionStatus(TransactionDefinition definition, Object transaction,
             boolean newTransaction, boolean newSynchronization, boolean debug, Object suspendedResources) {
-        // throws an exception if the name check doesn't pass
-        EnhancedTransactionManagerUtil.checkNewTransactionStatusForName(definition);
+        // throws an exception if the name checks don't pass
+        EnhancedTransactionManagerUtil.checkNewTransactionStatusForName(definition, suspendedTransactionName.get());
         return super.newTransactionStatus(definition, transaction, newTransaction, newSynchronization, debug,
                 suspendedResources);
+    }
+
+    @Override
+    protected Object doSuspend(Object transaction) {
+        String currentTxName = TransactionSynchronizationManager.getCurrentTransactionName();
+        Object resource = super.doSuspend(transaction);
+        suspendedTransactionName.set(currentTxName);
+
+        return resource;
+    }
+
+    @Override
+    protected void doResume(Object transaction, Object suspendedResources) {
+        super.doResume(transaction, suspendedResources);
+        suspendedTransactionName.remove();
     }
 }

@@ -48,36 +48,70 @@ public abstract class EnhancedTransactionManagerUtil {
      * @see org.springframework.transaction.support.AbstractPlatformTransactionManager#newTransactionStatus(org.springframework.transaction.TransactionDefinition,
      *      java.lang.Object, boolean, boolean, boolean, java.lang.Object)
      */
-    public static void checkNewTransactionStatusForName(TransactionDefinition definition)
+    public static void checkNewTransactionStatusForName(TransactionDefinition definition, String suspendedTxName)
             throws TransactionUsageException {
-        if (definition != null && TransactionSynchronizationManager.isSynchronizationActive()
-                && definition.getName() != null) {
-            /**
-             * The propagation behaviors that support executing within the
-             * current transaction: PROPAGATION_MANDATORY,
-             * PROPAGATION_REQUIRED, PROPAGATION_SUPPORTS.
-             * 
-             * <p>
-             * If txAttr indicates any of these propagation behaviors and
-             * there's an existing transaction, we want to assert that the
-             * existing transaction name matches the transaction name in
-             * txAttr.
-             * </p>
-             */
-            String currentTransactionName = TransactionSynchronizationManager.getCurrentTransactionName();
-            if (currentTransactionName == null) {
-                throw new IllegalStateException(
-                        "TransactionSynchronizationManager.isSynchronizationActive() returns true but TransactionSynchronizationManager.getCurrentTransactionName() returns null");
+        if (definition != null) {
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                String currentTransactionName = TransactionSynchronizationManager.getCurrentTransactionName();
+                if (currentTransactionName == null) {
+                    throw new IllegalStateException(
+                            "TransactionSynchronizationManager.isSynchronizationActive() returns true but TransactionSynchronizationManager.getCurrentTransactionName() returns null");
+                }
+
+                /**
+                 * The propagation behaviors that support executing within
+                 * the current transaction: PROPAGATION_MANDATORY,
+                 * PROPAGATION_REQUIRED, PROPAGATION_SUPPORTS.
+                 * 
+                 * <p>
+                 * If txAttr indicates any of these propagation behaviors and
+                 * there's an existing transaction, we want to assert that
+                 * the existing transaction name matches the transaction name
+                 * in txAttr.
+                 * </p>
+                 */
+                if (definition.getName() != null) {
+                    switch (definition.getPropagationBehavior()) {
+                        case TransactionDefinition.PROPAGATION_MANDATORY:
+                        case TransactionDefinition.PROPAGATION_REQUIRED:
+                        case TransactionDefinition.PROPAGATION_SUPPORTS:
+                            // throws an exception if the transaction names
+                            // don't
+                            // match
+                            assertExistingTxNameMatchesRequestedTxName(currentTransactionName, definition.getName());
+                            break;
+                        default:
+                    }
+                }
             }
-            switch (definition.getPropagationBehavior()) {
-                case TransactionDefinition.PROPAGATION_MANDATORY:
-                case TransactionDefinition.PROPAGATION_REQUIRED:
-                case TransactionDefinition.PROPAGATION_SUPPORTS:
-                    // throws an exception if the transaction names don't
-                    // match
-                    assertExistingTxNameMatchesRequestedTxName(currentTransactionName, definition.getName());
-                    break;
-                default:
+
+            if (suspendedTxName != null) {
+                /**
+                 * The propagation behaviors that support suspending the
+                 * current transaction: PROPAGATION_REQUIRES_NEW,
+                 * PROPAGATION_NOT_SUPPORTED.
+                 * 
+                 * <p>
+                 * If txAttr indicates any of these propagation behaviors and
+                 * there's an existing transaction, we want to assert that
+                 * the existing transaction name matches the suspendOnly
+                 * transaction name in txAttr.
+                 * </p>
+                 */
+                String suspendOnly = (definition instanceof ExtendedRuleBasedTransactionAttribute
+                        ? ((ExtendedRuleBasedTransactionAttribute) definition).getSuspendOnly() : null);
+                if (suspendOnly != null) {
+                    switch (definition.getPropagationBehavior()) {
+                        case TransactionDefinition.PROPAGATION_REQUIRES_NEW:
+                        case TransactionDefinition.PROPAGATION_NOT_SUPPORTED:
+                            // throws an exception if the transaction names
+                            // don't
+                            // match
+                            assertExistingTxNameMatchesSuspendOnlyTxName(suspendedTxName, suspendOnly);
+                            break;
+                        default:
+                    }
+                }
             }
         }
     }
@@ -89,6 +123,16 @@ public abstract class EnhancedTransactionManagerUtil {
                     "Specified propagation behavior supports an existing transaction but the existing transaction name of '"
                             + existingTxName + "' does not match the specified transaction name of '" + requestedTxName
                             + "'");
+        }
+    }
+
+    protected static void assertExistingTxNameMatchesSuspendOnlyTxName(String existingTxName,
+            String suspendOnlyTxName) throws TransactionUsageException {
+        if (!suspendOnlyTxName.equals(existingTxName)) {
+            throw new TransactionUsageException(
+                    "Specified propagation behavior supports suspending the current transaction but the current transaction name of '"
+                            + existingTxName + "' does not match the specified 'suspendOnly' transaction name of '"
+                            + suspendOnlyTxName + "'");
         }
     }
 }

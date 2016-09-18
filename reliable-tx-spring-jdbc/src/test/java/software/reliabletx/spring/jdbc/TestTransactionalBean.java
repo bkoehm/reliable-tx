@@ -30,6 +30,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.jdbc.datasource.ConnectionHolder;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -79,6 +80,47 @@ public class TestTransactionalBean implements ApplicationContextAware {
         if (synchronization != null) {
             TransactionSynchronizationManager.registerSynchronization(synchronization);
         }
+        runnable.run();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @TransactionName(name = "suspender", suspendOnly = "suspendee")
+    public void suspenderTransaction(TransactionSynchronization synchronization) throws Exception {
+        assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+        if (synchronization != null) {
+            TransactionSynchronizationManager.registerSynchronization(synchronization);
+        }
+        Connection conn = getCurrentConnection(dataSource);
+        insertKey(conn, 1);
+    }
+
+    @Transactional
+    @TransactionName(name = "suspendee")
+    public void suspendeeTransaction(TransactionSynchronization synchronization, Runnable runnable) throws Exception {
+        assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+        if (synchronization != null) {
+            TransactionSynchronizationManager.registerSynchronization(synchronization);
+        }
+
+        // should call suspenderTransaction() with null synchronization,
+        // which has REQUIRES_NEW and a suspendOnly of "suspendee" which
+        // matches this method's transaction name
+        runnable.run();
+    }
+
+    @Transactional
+    @TransactionName(name = "incorrectSuspendee")
+    public void suspendeeTransactionWithIncorrectName(TransactionSynchronization synchronization, Runnable runnable)
+            throws Exception {
+        assertTrue(TransactionSynchronizationManager.isActualTransactionActive());
+        if (synchronization != null) {
+            TransactionSynchronizationManager.registerSynchronization(synchronization);
+        }
+
+        // should call suspenderTransaction() with null synchronization,
+        // which has REQUIRES_NEW and a suspendOnly of "suspendee" which
+        // doesn't match this method's transaction name, so should throw an
+        // exception
         runnable.run();
     }
 
