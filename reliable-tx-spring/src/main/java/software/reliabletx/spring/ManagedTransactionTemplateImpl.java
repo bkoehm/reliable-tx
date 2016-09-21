@@ -28,8 +28,7 @@ import software.reliabletx.spring.ManagedTransactionTemplateUtil.TransactionCall
 /**
  * @author Brian Koehmstedt
  */
-public class ManagedTransactionTemplateImpl extends DefaultTransactionAttribute
-        implements ManagedTransactionTemplate {
+public class ManagedTransactionTemplateImpl extends DefaultTransactionAttribute implements ManagedTransactionTemplate {
 
     private static final long serialVersionUID = -1043369014484560217L;
 

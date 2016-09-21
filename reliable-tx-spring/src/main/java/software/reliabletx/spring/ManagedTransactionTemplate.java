@@ -27,6 +27,6 @@ public interface ManagedTransactionTemplate extends TransactionAttribute {
     PlatformTransactionManager getTransactionManager();
 
     void setTransactionManager(PlatformTransactionManager transactionManager);
-    
+
     <T> T execute(TransactionCallback<T> action);
 }

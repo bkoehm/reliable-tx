@@ -14,16 +14,13 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package software.reliabletx.spring;
-
-import org.springframework.transaction.TransactionStatus;
+package software.reliabletx.spring.synchronization.tracking;
 
 /**
  * @author Brian Koehmstedt
- * 
- * @param <T>
- *            The return type of the callback.
  */
-public interface ThrowableTransactionCallback<T> {
-    T doInTransaction(TransactionStatus status) throws Throwable;
+public class Commit extends AbstractAction implements CompletionAction {
+    public Commit(String txName) {
+        super(txName, ACTION_COMMIT);
+    }
 }

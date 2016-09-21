@@ -66,7 +66,7 @@ public @interface TransactionName {
 
     /**
      * If the propagation behavior supports suspending a current transaction,
-     * only suspend for current transactions with this name.  Optional.
+     * only suspend for current transactions with this name. Optional.
      */
     String suspendOnly() default "";
 }

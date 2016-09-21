@@ -18,7 +18,10 @@ package software.reliabletx.spring;
 
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionUsageException;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import software.reliabletx.spring.synchronization.tracking.TrackingTransactionSynchronization;
 
 /**
  * @author Brian Koehmstedt
@@ -126,13 +129,21 @@ public abstract class EnhancedTransactionManagerUtil {
         }
     }
 
-    protected static void assertExistingTxNameMatchesSuspendOnlyTxName(String existingTxName,
-            String suspendOnlyTxName) throws TransactionUsageException {
+    protected static void assertExistingTxNameMatchesSuspendOnlyTxName(String existingTxName, String suspendOnlyTxName)
+            throws TransactionUsageException {
         if (!suspendOnlyTxName.equals(existingTxName)) {
             throw new TransactionUsageException(
                     "Specified propagation behavior supports suspending the current transaction but the current transaction name of '"
                             + existingTxName + "' does not match the specified 'suspendOnly' transaction name of '"
                             + suspendOnlyTxName + "'");
+        }
+    }
+
+    public static void prepareTrackingSynchronization(DefaultTransactionStatus status) {
+        if (status.isNewSynchronization()) {
+            TrackingTransactionSynchronization synchronization = new TrackingTransactionSynchronization(status);
+            TransactionSynchronizationManager.registerSynchronization(synchronization);
+            synchronization.synchronizationPrepared();
         }
     }
 }
