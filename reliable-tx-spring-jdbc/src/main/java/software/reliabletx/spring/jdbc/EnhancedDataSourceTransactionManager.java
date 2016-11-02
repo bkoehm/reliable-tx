@@ -65,7 +65,6 @@ public class EnhancedDataSourceTransactionManager extends DataSourceTransactionM
         String currentTxName = TransactionSynchronizationManager.getCurrentTransactionName();
         Object resource = super.doSuspend(transaction);
         suspendedTransactionName.set(currentTxName);
-
         return resource;
     }
 
@@ -73,5 +72,11 @@ public class EnhancedDataSourceTransactionManager extends DataSourceTransactionM
     protected void doResume(Object transaction, Object suspendedResources) {
         super.doResume(transaction, suspendedResources);
         suspendedTransactionName.remove();
+    }
+
+    @Override
+    protected void prepareSynchronization(DefaultTransactionStatus status, TransactionDefinition definition) {
+        super.prepareSynchronization(status, definition);
+        EnhancedTransactionManagerUtil.prepareTrackingSynchronization(status);
     }
 }
