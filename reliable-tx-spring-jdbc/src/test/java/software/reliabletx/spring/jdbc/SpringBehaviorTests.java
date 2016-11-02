@@ -16,6 +16,8 @@
  */
 package software.reliabletx.spring.jdbc;
 
+import static software.reliabletx.spring.synchronization.tracking.TrackingTransactionSynchronization.*;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -27,10 +29,17 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import software.reliabletx.spring.synchronization.tracking.CrossTransactionActionRecorder;
+import software.reliabletx.spring.synchronization.tracking.TrackingTransactionSynchronization;
+
 /**
  * @author Brian Koehmstedt
  */
 public class SpringBehaviorTests extends SpringTestCase {
+
+    static class TrackingSynchronizationHolder {
+        TrackingTransactionSynchronization tracker;
+    }
 
     @Test
     public void testTransactionalAnnotationCommittingBehavior() throws Exception {
@@ -66,6 +75,9 @@ public class SpringBehaviorTests extends SpringTestCase {
 
         // We expect the synchronization callback to have recorded a commit.
         assertTrue(synchronization.wasCommitted());
+
+        assertEquals(txActivityString(begunAction("myTransaction"), commitAction("myTransaction")),
+                getLastCompletionString());
     }
 
     /**
@@ -105,6 +117,9 @@ public class SpringBehaviorTests extends SpringTestCase {
         // We expect the synchronization callback to have recorded a commit
         // despite the checked exception.
         assertTrue(synchronization.wasCommitted());
+
+        assertEquals(txActivityString(begunAction("myTransaction"), commitAction("myTransaction")),
+                getLastCompletionString());
     }
 
     /**
@@ -120,6 +135,7 @@ public class SpringBehaviorTests extends SpringTestCase {
 
         TransactionTemplate template = new TransactionTemplate(transactionManager,
                 new DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_REQUIRES_NEW));
+        template.setName("txTemplate");
         boolean result = template.execute(new TransactionCallback<Boolean>() {
             @Override
             public Boolean doInTransaction(TransactionStatus status) {
@@ -146,6 +162,9 @@ public class SpringBehaviorTests extends SpringTestCase {
         // We expect the synchronization callback to have recorded a
         // rollback.
         assertTrue(synchronization.wasRolledBack());
+
+        assertEquals(txActivityString(begunAction("txTemplate"), rollbackAction("txTemplate")),
+                getLastCompletionString());
     }
 
     @Test
@@ -188,6 +207,10 @@ public class SpringBehaviorTests extends SpringTestCase {
         // We expect the synchronization callback to have recorded a
         // rollback.
         assertTrue(synchronization.wasRolledBack());
+
+        assertEquals(
+                txActivityString(begunAction("incorrectTransactionName"), rollbackAction("incorrectTransactionName")),
+                getLastCompletionString());
     }
 
     /**
@@ -235,6 +258,12 @@ public class SpringBehaviorTests extends SpringTestCase {
 
         // We expect the synchronization callback to have recorded a commit.
         assertTrue(synchronization.wasCommitted());
+
+        assertEquals(
+                txActivityString(begunAction("suspendee"), suspendAction("suspendee"), begunAction("suspender"),
+                        commitAction("suspender"), resumeAction("suspendee"), commitAction("suspendee")),
+                getLastCompletionString());
+
     }
 
     @Test
@@ -279,6 +308,11 @@ public class SpringBehaviorTests extends SpringTestCase {
         // We expect the synchronization callback to have recorded a
         // rollback.
         assertTrue(synchronization.wasRolledBack());
+
+        assertEquals(
+                txActivityString(begunAction("incorrectSuspendee"), suspendAction("incorrectSuspendee"),
+                        resumeAction("incorrectSuspendee"), rollbackAction("incorrectSuspendee")),
+                getLastCompletionString());
     }
 
     /**
@@ -289,5 +323,9 @@ public class SpringBehaviorTests extends SpringTestCase {
      */
     final void callRealSuspenderTransaction() throws Exception {
         testBean.suspenderTransaction(null);
+    }
+
+    protected String getLastCompletionString() {
+        return CrossTransactionActionRecorder.getStaticLastCompletionString();
     }
 }
