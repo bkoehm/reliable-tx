@@ -15,7 +15,7 @@
  * under the License.
  */
 
- apply plugin: 'java'
+apply plugin: 'java'
 apply plugin: 'maven-publish'
 apply plugin: 'com.jfrog.bintray'
 
