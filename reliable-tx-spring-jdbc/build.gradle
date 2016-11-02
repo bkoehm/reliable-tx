@@ -104,7 +104,7 @@ publishing {
         mavenJava(MavenPublication) {
             from components.java
             artifact sourceJar { classifier "sources" }
-            artifact (javadocJar) { classifier "javadoc" }
+            artifact javadocJar { classifier "javadoc" }
             pom.withXml {
                 asNode().children().last() + {
                     resolveStrategy = Closure.DELEGATE_FIRST
