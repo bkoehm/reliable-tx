@@ -27,9 +27,9 @@ import org.apache.camel.model.ProcessorDefinition;
 import org.apache.camel.spring.SpringRouteBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -71,9 +71,11 @@ import software.reliabletx.spring.ManagedSpringTransactionImpl;
  */
 public class ReliableTxConsumerBuilder {
     final Logger log = LoggerFactory.getLogger(getClass());
+    public static final String ORIGINAL_TX_NAME_PROPERTY = "originalTxName";
+    public static final String MANAGED_TX_PROPERTY = "managedTx";
 
     private String transactionPolicyRefName;
-    protected AbstractPlatformTransactionManager transactionManager;
+    protected PlatformTransactionManager transactionManager;
 
     public ReliableTxConsumerBuilder() {
     }
@@ -86,7 +88,7 @@ public class ReliableTxConsumerBuilder {
         this.transactionPolicyRefName = transactionPolicyRefName;
     }
 
-    public void setTransactionManager(AbstractPlatformTransactionManager transactionManager) {
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
         this.transactionManager = transactionManager;
     }
 
@@ -122,8 +124,7 @@ public class ReliableTxConsumerBuilder {
                                     + Exchange.EXCEPTION_CAUGHT + " exchange parameter");
                         }
 
-                        ManagedSpringTransaction managedTx = exchange.getProperty("managedTx",
-                                ManagedSpringTransaction.class);
+                        ManagedSpringTransaction managedTx = getManagedSpringTransaction(exchange);
                         assertWithException(managedTx != null);
                         assertWithException(managedTx.getTransactionStatus() != null);
 
@@ -142,12 +143,11 @@ public class ReliableTxConsumerBuilder {
                 .onCompletion().modeBeforeConsumer().process(new Processor() {
                     @Override
                     public void process(Exchange exchange) throws Exception {
-                        ManagedSpringTransaction managedTx = exchange.getProperty("managedTx",
-                                ManagedSpringTransaction.class);
+                        ManagedSpringTransaction managedTx = getManagedSpringTransaction(exchange);
                         assertWithException(managedTx != null);
                         assertWithException(managedTx.getTransactionStatus() != null);
 
-                        String originalTxName = exchange.getProperty("originalTxName", String.class);
+                        String originalTxName = getOriginalTransactionName(exchange);
 
                         TransactionStatus originalTxStatus = exchange.getProperty("originalTxStatus",
                                 TransactionStatus.class);
@@ -273,7 +273,7 @@ public class ReliableTxConsumerBuilder {
                         Integer isolationLevel = TransactionSynchronizationManager
                                 .getCurrentTransactionIsolationLevel();
 
-                        exchange.setProperty("originalTxName",
+                        exchange.setProperty(ORIGINAL_TX_NAME_PROPERTY,
                                 TransactionSynchronizationManager.getCurrentTransactionName());
 
                         TransactionStatus originalTxStatus = getMandatoryCurrentTransactionStatus();
@@ -301,7 +301,7 @@ public class ReliableTxConsumerBuilder {
                         managedTx.beginTransaction();
 
                         /* this managed transaction belongs to this exchange */
-                        exchange.setProperty("managedTx", managedTx);
+                        exchange.setProperty(MANAGED_TX_PROPERTY, managedTx);
 
                         /* We compare the old and new isolation levels to
                          * make sure they are the same. */
@@ -339,5 +339,17 @@ public class ReliableTxConsumerBuilder {
         if (!condition) {
             throw new RuntimeException("assertion failed");
         }
+    }
+
+    public static String getOriginalTransactionName(Exchange exchange) {
+        return exchange.getProperty(ORIGINAL_TX_NAME_PROPERTY, String.class);
+    }
+
+    public static ManagedSpringTransaction getManagedSpringTransaction(Exchange exchange) {
+        return exchange.getProperty(MANAGED_TX_PROPERTY, ManagedSpringTransaction.class);
+    }
+
+    public static String getManagedTransactionName(Exchange exchange) {
+        return getManagedSpringTransaction(exchange).getTransactionName();
     }
 }
