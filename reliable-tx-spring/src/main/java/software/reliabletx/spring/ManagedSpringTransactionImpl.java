@@ -38,15 +38,15 @@ import org.springframework.util.IdGenerator;
  * 
  * <ul>
  * 
- * <li>Although not absolutely required, for reliable transactions the Spring
- * transaction manager in use should extend
- * {@link AbstractPlatformTransactionManager} and synchronization should be
- * enabled with:
- * {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ALWAYS} or
- * {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ON_ACTUAL_TRANSACTION}
- * . Additionally, for synchronization to be enabled,
- * {@link TransactionSynchronizationManager#initSynchronization()} must have
- * been called.</li>
+ * <li>Although not absolutely required, for reliable transactions the
+ * Spring transaction manager in use should support transaction
+ * synchronization.  If using a transaction manager that extends {@link
+ * AbstractPlatformTransactionManager}, synchronization should be enabled
+ * with: {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ALWAYS}
+ * or {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ON_ACTUAL_TRANSACTION}. 
+ * Additionally, for synchronization to be enabled, {@link
+ * TransactionSynchronizationManager#initSynchronization()} must have been
+ * called.</li>
  * 
  * <li>If a transaction name has not specified by the caller before
  * {@link #beginTransaction()} has been called, then a random transaction
@@ -112,15 +112,18 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
      * an instance of AbstractPlatformTransactionManager.
      */
     public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager) {
-        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager), null);
+        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager)
+                || TransactionSynchronizationManager.isSynchronizationActive(), null);
     }
 
     public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager, TransactionDefinition def) {
-        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager), def);
+        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager)
+                || TransactionSynchronizationManager.isSynchronizationActive(), def);
     }
 
     public ManagedSpringTransactionImpl(PlatformTransactionManager transactionManager, String txName) {
-        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager), null);
+        this(transactionManager, (transactionManager instanceof AbstractPlatformTransactionManager)
+                || TransactionSynchronizationManager.isSynchronizationActive(), null);
         setTransactionName(txName);
     }
 
@@ -196,9 +199,10 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
     @Override
     public boolean isSynchronizationSupported() {
-        return (getTransactionManager() instanceof AbstractPlatformTransactionManager)
+        return ((getTransactionManager() instanceof AbstractPlatformTransactionManager)
                 && (((AbstractPlatformTransactionManager) getTransactionManager())
-                        .getTransactionSynchronization() != AbstractPlatformTransactionManager.SYNCHRONIZATION_NEVER);
+                        .getTransactionSynchronization() != AbstractPlatformTransactionManager.SYNCHRONIZATION_NEVER))
+                || TransactionSynchronizationManager.isSynchronizationActive();
     }
 
     private void assertSynchronizationEnforced() {
