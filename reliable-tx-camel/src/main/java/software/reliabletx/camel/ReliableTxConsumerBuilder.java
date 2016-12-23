@@ -92,8 +92,8 @@ public class ReliableTxConsumerBuilder {
         this.transactionManager = transactionManager;
     }
 
-    public ProcessorDefinition<?> from(Endpoint origin, final ErrorResponseMode errorHandlingMode,
-            SpringRouteBuilder routeBuilder) throws Exception {
+    public ProcessorDefinition<?> from(final Endpoint origin, final ErrorResponseMode errorHandlingMode,
+            final SpringRouteBuilder routeBuilder) throws Exception {
         assertWithException(transactionPolicyRefName != null);
         return routeBuilder.from(origin)
                 // onException(ReliableTxCamelException.class)
@@ -281,6 +281,13 @@ public class ReliableTxConsumerBuilder {
                          * suspend when we create our explicit tx, and we
                          * expect it to resume when we commit our explicit
                          * tx. */
+
+                        /* The exchange should be transacted. */
+                        if (!exchange.isTransacted()) {
+                            throw new RuntimeException("This exchange isn't transacted.  Is origin "
+                                    + origin.getEndpointUri() + " transactional?  The origin Endpoint class is "
+                                    + origin.getClass().getName());
+                        }
 
                         /* There should be an existing tx. */
                         assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
