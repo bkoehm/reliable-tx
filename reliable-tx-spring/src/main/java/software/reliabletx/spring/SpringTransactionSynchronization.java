@@ -18,6 +18,8 @@ package software.reliabletx.spring;
 
 import java.io.Serializable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -29,6 +31,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public class SpringTransactionSynchronization implements TransactionSynchronization, Serializable {
     private static final long serialVersionUID = 352975547922387276L;
+
+    private final Logger log = LoggerFactory.getLogger(getClass());
 
     private SynchronizationState state;
     private String txName;
@@ -63,11 +67,43 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
     }
 
     public boolean isTransactionCurrentAndActive() {
+        return isTransactionCurrentAndActive(false);
+    }
+
+    /**
+     * @param logMsgs
+     *            If true, log warnings if not current or active.
+     */
+    public boolean isTransactionCurrentAndActive(boolean logMsgs) {
+        if (logMsgs) {
+            if (!SynchronizationState.ACTIVE.equals(state)) {
+                log.warn("Synchronization state for transaction is not active");
+            }
+            if (!isTransactionCurrent()) {
+                log.warn("This transaction is not the current transaction");
+            } else if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+                log.warn("The TransactionSynchronizationManager says this transaction is not active");
+            }
+        }
         return SynchronizationState.ACTIVE.equals(state) && isTransactionCurrent()
                 && TransactionSynchronizationManager.isActualTransactionActive();
     }
 
     public boolean isTransactionCurrentAndActive(String txName) {
+        return isTransactionCurrentAndActive(txName, false);
+    }
+
+    public boolean isTransactionCurrentAndActive(String txName, boolean logMsgs) {
+        if (logMsgs) {
+            if (!SynchronizationState.ACTIVE.equals(state)) {
+                log.warn("Synchronization state for transaction is not active");
+            }
+            if (!isTransactionCurrent(txName)) {
+                log.warn("Transaction is not the current transaction");
+            } else if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+                log.warn("The TransactionSynchronizationManager says the transaction is not active");
+            }
+        }
         return SynchronizationState.ACTIVE.equals(state) && isTransactionCurrent(txName)
                 && TransactionSynchronizationManager.isActualTransactionActive();
     }

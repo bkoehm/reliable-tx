@@ -38,15 +38,16 @@ import org.springframework.util.IdGenerator;
  * 
  * <ul>
  * 
- * <li>Although not absolutely required, for reliable transactions the
- * Spring transaction manager in use should support transaction
- * synchronization.  If using a transaction manager that extends {@link
- * AbstractPlatformTransactionManager}, synchronization should be enabled
- * with: {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ALWAYS}
- * or {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ON_ACTUAL_TRANSACTION}. 
- * Additionally, for synchronization to be enabled, {@link
- * TransactionSynchronizationManager#initSynchronization()} must have been
- * called.</li>
+ * <li>Although not absolutely required, for reliable transactions the Spring
+ * transaction manager in use should support transaction synchronization. If
+ * using a transaction manager that extends
+ * {@link AbstractPlatformTransactionManager}, synchronization should be
+ * enabled with:
+ * {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ALWAYS} or
+ * {@link AbstractPlatformTransactionManager#SYNCHRONIZATION_ON_ACTUAL_TRANSACTION}.
+ * Additionally, for synchronization to be enabled,
+ * {@link TransactionSynchronizationManager#initSynchronization()} must have
+ * been called.</li>
  * 
  * <li>If a transaction name has not specified by the caller before
  * {@link #beginTransaction()} has been called, then a random transaction
@@ -272,21 +273,41 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         }
     }
 
-    @Override
-    public boolean isCurrentAndActive() throws IllegalStateException {
+    /**
+     * @param logMsgs
+     *            If true, log warnings if not current or active.
+     */
+    public boolean isCurrentAndActive(boolean logMsgs) throws IllegalStateException {
         assertBegun();
         if (isSynchronizationSupported()) {
-            return !getTransactionStatus().isCompleted()
-                    && getSynchronization().isTransactionCurrentAndActive(getTransactionName());
+            boolean isCompleted = getTransactionStatus().isCompleted();
+            if (logMsgs && isCompleted) {
+                log.warn("Transaction is not active because it's already completed");
+            }
+            boolean isTxCurrentAndActive = getSynchronization().isTransactionCurrentAndActive(getTransactionName(),
+                    true);
+            if (logMsgs && !isTxCurrentAndActive) {
+                log.warn("The synchronization says the transaction is not current and active");
+            }
+            return !isCompleted && isTxCurrentAndActive;
         } else {
             /* since synchronization is not supported, all we have to go on
              * is txStatus.isCompleted */
-            return !getTransactionStatus().isCompleted();
+            boolean isCompleted = getTransactionStatus().isCompleted();
+            if (isCompleted) {
+                log.warn("Transaction is not active because it's already completed (synchronization is not supported)");
+            }
+            return !isCompleted;
         }
     }
 
+    @Override
+    public boolean isCurrentAndActive() throws IllegalStateException {
+        return isCurrentAndActive(false);
+    }
+
     public void assertCurrentAndActive() throws IllegalStateException {
-        assertWithException(isCurrentAndActive());
+        assertWithException(isCurrentAndActive(true));
     }
 
     @Override
