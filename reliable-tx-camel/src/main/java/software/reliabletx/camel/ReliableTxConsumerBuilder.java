@@ -117,6 +117,16 @@ public class ReliableTxConsumerBuilder {
                         log.debug("onException handling for Throwable");
 
                         Throwable exceptionCaught = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Throwable.class);
+                        if (exceptionCaught instanceof ReliableTxCamelException) {
+                            /* onException can be called a second time when
+                             * the original exception is wrapped. Since we've
+                             * already handled the exception, call
+                             * setException() again to re-mark the exchange
+                             * as failed and then return. */
+                            log.debug("Exception has already been handled.");
+                            exchange.setException(exceptionCaught);
+                            return;
+                        }
                         if (exceptionCaught != null) {
                             log.error("Exception caught during exchange", exceptionCaught);
                         } else {
@@ -128,8 +138,9 @@ public class ReliableTxConsumerBuilder {
                         assertWithException(managedTx != null);
                         assertWithException(managedTx.getTransactionStatus() != null);
 
-                        if (managedTx.isRollbackOnly()) {
-                            log.debug("Managed transaction for this exchange has already been marked as rollback-only");
+                        if (managedTx.isRollbackOnly() || managedTx.isRolledBack()) {
+                            log.debug(
+                                    "Managed transaction for this exchange has already been marked as rollback-only or has already been rolled back");
                             return;
                         } else {
                             log.debug("Marking managed transaction for this exchange as rollback-only");
@@ -164,14 +175,17 @@ public class ReliableTxConsumerBuilder {
                              * it also confirms the final state as fully
                              * committed or rolled back. It throws an
                              * exception otherwise. */
-                            if (!exchange.isFailed() && !managedTx.isRollbackOnly()) {
+                            if (!exchange.isFailed() && !managedTx.isRollbackOnly() && !managedTx.isRolledBack()) {
                                 managedTx.commit();
                                 if (log.isDebugEnabled()) {
                                     log.debug("committed");
                                 }
                             } else {
-                                log.debug("Exchange is either failed or the managedTx is marked as rollback-only.");
-                                managedTx.rollback();
+                                log.debug(
+                                        "Exchange is either failed or the managedTx is marked as rollback-only or already rolled back.");
+                                if (!managedTx.isRolledBack()) {
+                                    managedTx.rollback();
+                                }
                                 didRollback = true;
                                 if (log.isDebugEnabled()) {
                                     log.debug("rolled back");
