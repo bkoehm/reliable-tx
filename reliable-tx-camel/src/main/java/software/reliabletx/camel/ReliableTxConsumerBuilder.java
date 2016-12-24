@@ -33,8 +33,8 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import software.reliabletx.spring.ManagedNestedTransactionTemplate;
 import software.reliabletx.spring.ManagedSpringTransaction;
-import software.reliabletx.spring.ManagedSpringTransactionImpl;
 
 /**
  * Build the start of a reliably transacted Camel route for a consumer.
@@ -159,9 +159,6 @@ public class ReliableTxConsumerBuilder {
                         assertWithException(managedTx.getTransactionStatus() != null);
 
                         String originalTxName = getOriginalTransactionName(exchange);
-
-                        TransactionStatus originalTxStatus = exchange.getProperty("originalTxStatus",
-                                TransactionStatus.class);
 
                         boolean didRollback = false;
 
@@ -289,47 +286,27 @@ public class ReliableTxConsumerBuilder {
                                     + origin.getClass().getName());
                         }
 
-                        /* There should be an existing tx. */
-                        assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
-                        Integer isolationLevel = TransactionSynchronizationManager
-                                .getCurrentTransactionIsolationLevel();
+                        /* The current transaction should be a managed
+                         * transaction, thanks to
+                         * ManagedNestedTransactionTemplate. */
+                        ManagedSpringTransaction managedTx = ManagedNestedTransactionTemplate
+                                .getExistingManagedTransaction();
+                        assertWithException(managedTx != null);
+                        assertWithException(managedTx.isCurrentAndActive());
 
-                        exchange.setProperty(ORIGINAL_TX_NAME_PROPERTY,
-                                TransactionSynchronizationManager.getCurrentTransactionName());
-
-                        TransactionStatus originalTxStatus = getMandatoryCurrentTransactionStatus();
-                        assertWithException(!originalTxStatus.isCompleted());
-                        exchange.setProperty("originalTxStatus", originalTxStatus);
-
-                        /* Short-circuit the current tx by creating a new one
-                         * that we will manage on our own. We do this so we
-                         * can commit this transaction before the reply is
-                         * sent. If the transaction manager supports tx
-                         * suspension, this will suspend the transaction that
-                         * Camel started for the exchange. It will be resumed
-                         * after we commit this transaction. */
-
-                        ManagedSpringTransaction managedTx = new ManagedSpringTransactionImpl(transactionManager);
-
-                        String txName = "ConsumerBuilderManagedTx:exchange:" + exchange.getExchangeId();
-                        if (log.isTraceEnabled()) {
-                            log.trace("using txName " + txName);
+                        /* The ManagedNestedTransactionTemplate may have
+                         * suspended a transaction in order to create a new
+                         * nested transaction at the start of this exchange. */
+                        if (TransactionSynchronizationManager
+                                .hasResource(ManagedNestedTransactionTemplate.ORIGINAL_TX_NAME_RESOURCE)) {
+                            String originalTxName = (String) TransactionSynchronizationManager
+                                    .getResource(ManagedNestedTransactionTemplate.ORIGINAL_TX_NAME_RESOURCE);
+                            log.debug("Original tx name that was suspended for this exchange: " + originalTxName);
+                            exchange.setProperty(ORIGINAL_TX_NAME_PROPERTY, originalTxName);
                         }
-                        managedTx.setTransactionName(txName);
-
-                        /* This will suspend the existing transaction and
-                         * start our own explicit-managed transaction. */
-                        managedTx.beginTransaction();
 
                         /* this managed transaction belongs to this exchange */
                         exchange.setProperty(MANAGED_TX_PROPERTY, managedTx);
-
-                        /* We compare the old and new isolation levels to
-                         * make sure they are the same. */
-                        if (isolationLevel != null) {
-                            assertWithException(isolationLevel
-                                    .equals(TransactionSynchronizationManager.getCurrentTransactionIsolationLevel()));
-                        }
                     }
                 })
                 // transacted
