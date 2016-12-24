@@ -164,6 +164,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         this._transactionManager = transactionManager;
     }
 
+    @Override
     public boolean isSynchronizationEnforced() {
         return _isSynchronizationEnforced;
     }
@@ -258,7 +259,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
             /* Initialize the synchronization object that belongs to this
              * transaction. */
-            this._synchronization = new SpringTransactionSynchronization();
+            this._synchronization = new SpringTransactionSynchronization(this);
             _synchronization.init();
 
             /* Register the synchronization with the current transaction. */
@@ -285,7 +286,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
                 log.warn("Transaction is not active because it's already completed");
             }
             boolean isTxCurrentAndActive = getSynchronization().isTransactionCurrentAndActive(getTransactionName(),
-                    true);
+                    logMsgs);
             if (logMsgs && !isTxCurrentAndActive) {
                 log.warn("The synchronization says the transaction is not current and active");
             }

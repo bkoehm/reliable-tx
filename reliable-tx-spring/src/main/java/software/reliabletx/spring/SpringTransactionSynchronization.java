@@ -34,10 +34,12 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
 
     private final Logger log = LoggerFactory.getLogger(getClass());
 
+    private ManagedSpringTransaction owningTx;
     private SynchronizationState state;
     private String txName;
 
-    public SpringTransactionSynchronization() {
+    public SpringTransactionSynchronization(ManagedSpringTransaction owningTx) {
+        this.owningTx = owningTx;
         this.state = SynchronizationState.UNINITIALIZED;
     }
 
@@ -109,7 +111,7 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
     }
 
     public void assertTransactionCurrentAndActive() {
-        assertWithException(isTransactionCurrentAndActive());
+        assertWithException(isTransactionCurrentAndActive(true));
     }
 
     @Override
@@ -162,6 +164,10 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
 
     public SynchronizationState getState() {
         return state;
+    }
+
+    public ManagedSpringTransaction getOwningManagedTransaction() {
+        return owningTx;
     }
 
     private static void assertWithException(boolean condition) throws RuntimeException {
