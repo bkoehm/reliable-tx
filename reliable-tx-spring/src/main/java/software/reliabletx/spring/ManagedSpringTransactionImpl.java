@@ -252,7 +252,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
     }
 
     private void initNewSynchronization(String txName) {
-        if (isSynchronizationSupported()) {
+        if (isSynchronizationEnforced()) {
             assertWithException(TransactionSynchronizationManager.isSynchronizationActive());
             assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
             assertWithException(txName.equals(TransactionSynchronizationManager.getCurrentTransactionName()));
@@ -280,7 +280,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
      */
     public boolean isCurrentAndActive(boolean logMsgs) throws IllegalStateException {
         assertBegun();
-        if (isSynchronizationSupported()) {
+        if (isSynchronizationEnforced()) {
             boolean isCompleted = getTransactionStatus().isCompleted();
             if (logMsgs && isCompleted) {
                 log.warn("Transaction is not active because it's already completed");
@@ -351,7 +351,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
             if (log.isTraceEnabled()) {
                 log.trace("done with commit");
             }
-            if (isSynchronizationSupported()) {
+            if (isSynchronizationEnforced()) {
                 assertWithException(isCommitted());
             }
         }
@@ -368,7 +368,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         if (log.isTraceEnabled()) {
             log.trace("done with rollback");
         }
-        if (isSynchronizationSupported()) {
+        if (isSynchronizationEnforced()) {
             assertWithException(isRolledBack());
         }
     }
