@@ -50,7 +50,6 @@
 
     <!-- END GENERAL ATOMIKOS CONFIGURATION -->
 
-
     <!-- request/reply message producers (at least using temporary queues) 
         can't be transactional. See TemporaryQueueReplyManager.createListenerContainer() 
         and QueueReplyReplyManager.createListenerContainer() where answer.setSessionTransacted() 
@@ -84,33 +83,25 @@
         <property name="defaultEntry" ref="amqRedeliveryPolicy" />
     </bean>
 
-    <bean id="CAMEL_PROPAGATION_MANDATORY" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
-        <property name="transactionManager" ref="jtaTransactionManager" />
-        <property name="propagationBehaviorName" value="PROPAGATION_MANDATORY" />
-    </bean>
-    <bean id="CAMEL_PROPAGATION_REQUIRED" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+    <bean id="transactionTemplate"
+        class="software.reliabletx.spring.ManagedNestedTransactionTemplate">
         <property name="transactionManager" ref="jtaTransactionManager" />
         <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED" />
     </bean>
-    <bean id="CAMEL_PROPAGATION_REQUIRES_NEW" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
-        <property name="transactionManager" ref="jtaTransactionManager" />
-        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRES_NEW" />
+
+    <bean id="CAMEL_PROPAGATION_REQUIRED" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
+        <!-- using a ManagedNestedTransactionTemplate is important here -->
+        <property name="transactionTemplate" ref="transactionTemplate" />
     </bean>
 
     <bean id="redeliveryPolicy" class="org.apache.camel.processor.RedeliveryPolicy">
         <property name="maximumRedeliveries" value="0" />
     </bean>
 
-    <bean id="transactionTemplate"
-        class="org.springframework.transaction.support.TransactionTemplate">
-        <property name="transactionManager" ref="jtaTransactionManager" />
-        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED" />
-    </bean>
-
     <bean id="transactionErrorHandler"
         class="org.apache.camel.spring.spi.TransactionErrorHandlerBuilder">
         <property name="redeliveryPolicy" ref="redeliveryPolicy" />
-        <property name="springTransactionPolicy" ref="CAMEL_PROPAGATION_REQUIRED" />
+        <!-- using a ManagedNestedTransactionTemplate is important here -->
         <property name="transactionTemplate" ref="transactionTemplate" />
     </bean>
 
@@ -129,7 +120,7 @@
         <property name="errorHandlerBuilder" ref="transactionErrorHandler" />
     </bean>
 
-    <!-- JTA JmsConfiguration for Camel -->
+    <!-- JTA JmsConfiguration for Camel: used to configure the component -->
     <bean id="jtaJmsConfiguration"
         class="org.apache.activemq.camel.component.ActiveMQConfiguration">
         <property name="connectionFactory" ref="atomikosJmsConnectionFactory" />
