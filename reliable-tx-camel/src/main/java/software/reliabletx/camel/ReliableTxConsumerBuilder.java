@@ -25,6 +25,8 @@ import org.apache.camel.Processor;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.model.ProcessorDefinition;
 import org.apache.camel.spring.SpringRouteBuilder;
+import org.apache.camel.spring.spi.SpringTransactionPolicy;
+import org.apache.camel.spring.spi.TransactionErrorHandlerBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -76,6 +78,7 @@ public class ReliableTxConsumerBuilder {
 
     private String transactionPolicyRefName;
     protected PlatformTransactionManager transactionManager;
+    private boolean checkConfiguration = true;
 
     public ReliableTxConsumerBuilder() {
     }
@@ -92,9 +95,45 @@ public class ReliableTxConsumerBuilder {
         this.transactionManager = transactionManager;
     }
 
+    public boolean isConfigurationChecked() {
+        return checkConfiguration;
+    }
+
+    public void setConfigurationChecked(boolean checkConfiguration) {
+        this.checkConfiguration = checkConfiguration;
+    }
+
     public ProcessorDefinition<?> from(final Endpoint origin, final ErrorResponseMode errorHandlingMode,
             final SpringRouteBuilder routeBuilder) throws Exception {
-        assertWithException(transactionPolicyRefName != null);
+        if (isConfigurationChecked()) {
+            if (!(routeBuilder.getContext().getErrorHandlerBuilder() instanceof TransactionErrorHandlerBuilder)) {
+                throw new RuntimeException(
+                        "camelContext.errorHandlerBuilder is not an instanceof TransactionErrorHandlerBuilder.  Instead, it's: "
+                                + (routeBuilder.getContext().getErrorHandlerBuilder() != null
+                                        ? routeBuilder.getContext().getErrorHandlerBuilder().getClass().getName()
+                                        : "null"));
+            }
+            TransactionErrorHandlerBuilder errorHandlerBuilder = (TransactionErrorHandlerBuilder) routeBuilder
+                    .getContext().getErrorHandlerBuilder();
+            if (!(errorHandlerBuilder.getTransactionTemplate() instanceof ManagedNestedTransactionTemplate)) {
+                throw new RuntimeException(
+                        "camelContext.errorHandlerBuilder.transactionTemplate is not an instance of ManagedTransactionTemplate.  Instead, it's: "
+                                + (errorHandlerBuilder.getTransactionTemplate() != null
+                                        ? errorHandlerBuilder.getTransactionTemplate().getClass().getName() : "null"));
+            }
+            assertWithException(transactionPolicyRefName != null);
+            SpringTransactionPolicy stp = routeBuilder.getApplicationContext().getBean(transactionPolicyRefName,
+                    SpringTransactionPolicy.class);
+            if (stp == null) {
+                throw new RuntimeException("transactionPolicyRefName is set to " + transactionPolicyRefName
+                        + " and either that bean does not exist or it's not an instance of SpringTransactionPolicy");
+            }
+            if (!(stp.getTransactionTemplate() instanceof ManagedNestedTransactionTemplate)) {
+                throw new RuntimeException(transactionPolicyRefName
+                        + ".transactionTemplate is not an instance of ManagedTransactionTemplate.  Instead, it's: "
+                        + stp.getClass().getName());
+            }
+        }
         return routeBuilder.from(origin)
                 // onException(ReliableTxCamelException.class)
                 /* This is here to preempt the general onException handling

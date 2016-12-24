@@ -137,6 +137,11 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
             if (currentTransactionExists) {
                 log.info("Suspending current transaction "
                         + TransactionSynchronizationManager.getCurrentTransactionName());
+                if (TransactionSynchronizationManager.hasResource(ORIGINAL_TX_NAME_RESOURCE)) {
+                    TransactionSynchronizationManager.unbindResourceIfPossible(ORIGINAL_TX_NAME_RESOURCE);
+                }
+                // TODO: This should probably really go into the
+                // ManagedSpringTransaction.
                 TransactionSynchronizationManager.bindResource(ORIGINAL_TX_NAME_RESOURCE,
                         TransactionSynchronizationManager.getCurrentTransactionName());
             }
@@ -149,6 +154,11 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
                 throw new TransactionSystemException("Couldn't begin transaction", t);
             }
             log.info("Started a new transaction: " + managedTx.getTransactionName());
+            if (!managedTx.getTransactionName().equals(TransactionSynchronizationManager.getCurrentTransactionName())) {
+                throw new RuntimeException(
+                        "TransactionSynchronizationManager is not reporting the right transaction name.  It's reporting "
+                                + TransactionSynchronizationManager.getCurrentTransactionName());
+            }
         } else if (currentTransactionExists && getExistingManagedTransaction() == null) {
             throw new RuntimeException(
                     "A current unmanaged transaction exists but the propagation behavior is not one that supports suspending the current transaction and creating a new managed transaction.");
@@ -159,7 +169,7 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
 
     protected static ManagedSpringTransactionImpl createManagedSpringTransaction(PlatformTransactionManager txMgr,
             TransactionDefinition def) {
-        return new ManagedSpringTransactionImpl(txMgr, def);
+        return new ManagedSpringTransactionImpl(txMgr, true, def);
     }
 
     public static ManagedSpringTransaction getExistingManagedTransaction() {
