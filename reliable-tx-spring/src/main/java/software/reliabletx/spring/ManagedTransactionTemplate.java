@@ -16,17 +16,23 @@
  */
 package software.reliabletx.spring;
 
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.interceptor.TransactionAttribute;
 import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionOperations;
 
 /**
  * @author Brian Koehmstedt
  */
-public interface ManagedTransactionTemplate extends TransactionAttribute {
+public interface ManagedTransactionTemplate extends TransactionAttribute, TransactionOperations, InitializingBean {
     PlatformTransactionManager getTransactionManager();
 
     void setTransactionManager(PlatformTransactionManager transactionManager);
 
+    @Override
     <T> T execute(TransactionCallback<T> action);
+
+    @Override
+    void afterPropertiesSet();
 }

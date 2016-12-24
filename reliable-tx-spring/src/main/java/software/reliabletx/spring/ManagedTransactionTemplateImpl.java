@@ -96,4 +96,11 @@ public class ManagedTransactionTemplateImpl extends DefaultTransactionAttribute 
             throw new IllegalStateException(t);
         }
     }
+
+    @Override
+    public void afterPropertiesSet() {
+        if (this.transactionManager == null) {
+            throw new IllegalArgumentException("Property 'transactionManager' is required");
+        }
+    }
 }
