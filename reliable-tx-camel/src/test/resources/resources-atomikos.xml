@@ -116,9 +116,7 @@
     </bean>
 
     <!-- JTA CamelContext -->
-    <bean id="jtaCamelContext" class="org.apache.camel.spring.SpringCamelContext">
-        <property name="errorHandlerBuilder" ref="transactionErrorHandler" />
-    </bean>
+    <bean id="jtaCamelContext" class="org.apache.camel.spring.SpringCamelContext" />
 
     <!-- JTA JmsConfiguration for Camel: used to configure the component -->
     <bean id="jtaJmsConfiguration"
@@ -190,6 +188,7 @@
     <!-- ReliableTxConsumerBuilder -->
     <bean id="consumerBuilder" class="software.reliabletx.camel.ReliableTxConsumerBuilder">
         <property name="transactionPolicyRefName" value="CAMEL_PROPAGATION_REQUIRED" />
+        <property name="errorHandler" ref="transactionErrorHandler"/>
         <property name="transactionManager" ref="jtaTransactionManager" />
     </bean>
 
