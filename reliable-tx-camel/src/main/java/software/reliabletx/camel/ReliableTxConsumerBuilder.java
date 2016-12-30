@@ -17,12 +17,15 @@
 package software.reliabletx.camel;
 
 import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 import org.apache.camel.CamelException;
 import org.apache.camel.Endpoint;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.RuntimeCamelException;
+import org.apache.camel.builder.ErrorHandlerBuilder;
 import org.apache.camel.model.ProcessorDefinition;
 import org.apache.camel.spring.SpringRouteBuilder;
 import org.apache.camel.spring.spi.SpringTransactionPolicy;
@@ -77,18 +80,32 @@ public class ReliableTxConsumerBuilder {
     public static final String MANAGED_TX_PROPERTY = "managedTx";
 
     private String transactionPolicyRefName;
+    private ErrorHandlerBuilder errorHandler;
     protected PlatformTransactionManager transactionManager;
     private boolean checkConfiguration = true;
 
     public ReliableTxConsumerBuilder() {
     }
 
-    public ReliableTxConsumerBuilder(String transactionPolicyRefName) {
+    public ReliableTxConsumerBuilder(String transactionPolicyRefName, ErrorHandlerBuilder errorHandler) {
         this.transactionPolicyRefName = transactionPolicyRefName;
+        this.errorHandler = errorHandler;
+    }
+
+    public String getTransactionPolicyRefName() {
+        return transactionPolicyRefName;
     }
 
     public void setTransactionPolicyRefName(String transactionPolicyRefName) {
         this.transactionPolicyRefName = transactionPolicyRefName;
+    }
+
+    public ErrorHandlerBuilder getErrorHandler() {
+        return errorHandler;
+    }
+
+    public void setErrorHandler(ErrorHandlerBuilder errorHandler) {
+        this.errorHandler = errorHandler;
     }
 
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
@@ -106,18 +123,15 @@ public class ReliableTxConsumerBuilder {
     public ProcessorDefinition<?> from(final Endpoint origin, final ErrorResponseMode errorHandlingMode,
             final SpringRouteBuilder routeBuilder) throws Exception {
         if (isConfigurationChecked()) {
-            if (!(routeBuilder.getContext().getErrorHandlerBuilder() instanceof TransactionErrorHandlerBuilder)) {
+            if (!(errorHandler instanceof TransactionErrorHandlerBuilder)) {
                 throw new RuntimeException(
-                        "camelContext.errorHandlerBuilder is not an instanceof TransactionErrorHandlerBuilder.  Instead, it's: "
-                                + (routeBuilder.getContext().getErrorHandlerBuilder() != null
-                                        ? routeBuilder.getContext().getErrorHandlerBuilder().getClass().getName()
-                                        : "null"));
+                        "errorHandler is not an instanceof TransactionErrorHandlerBuilder.  Instead, it's: "
+                                + (errorHandler != null ? errorHandler.getClass().getName() : "null"));
             }
-            TransactionErrorHandlerBuilder errorHandlerBuilder = (TransactionErrorHandlerBuilder) routeBuilder
-                    .getContext().getErrorHandlerBuilder();
+            TransactionErrorHandlerBuilder errorHandlerBuilder = (TransactionErrorHandlerBuilder) errorHandler;
             if (!(errorHandlerBuilder.getTransactionTemplate() instanceof ManagedNestedTransactionTemplate)) {
                 throw new RuntimeException(
-                        "camelContext.errorHandlerBuilder.transactionTemplate is not an instance of ManagedTransactionTemplate.  Instead, it's: "
+                        "errorHandler.transactionTemplate is not an instance of ManagedTransactionTemplate.  Instead, it's: "
                                 + (errorHandlerBuilder.getTransactionTemplate() != null
                                         ? errorHandlerBuilder.getTransactionTemplate().getClass().getName() : "null"));
             }
@@ -133,8 +147,20 @@ public class ReliableTxConsumerBuilder {
                         + ".transactionTemplate is not an instance of ManagedTransactionTemplate.  Instead, it's: "
                         + stp.getClass().getName());
             }
+
+            /**
+             * Exchange can still be transacted when the endpoint is not
+             * configured as transacted, so confirm the endpoint is
+             * transacted, if we can.
+             */
+            Boolean isEndpointTransacted = isEndpointTransacted(origin);
+            if (isEndpointTransacted != null && isEndpointTransacted == Boolean.FALSE) {
+                throw new RuntimeException(
+                        "Endpoint's isTransacted() and/or getTransactionManager() method is returning false or null: endpoint="
+                                + origin);
+            }
         }
-        return routeBuilder.from(origin)
+        return routeBuilder.from(origin).errorHandler(errorHandler)
                 // onException(ReliableTxCamelException.class)
                 /* This is here to preempt the general onException handling
                  * for Throwable. In other words, we don't want
@@ -388,5 +414,45 @@ public class ReliableTxConsumerBuilder {
 
     public static String getManagedTransactionName(Exchange exchange) {
         return getManagedSpringTransaction(exchange).getTransactionName();
+    }
+
+    protected static Boolean isEndpointTransacted(Endpoint endpoint)
+            throws SecurityException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        /**
+         * Using reflection here is unfortunate but transactional Camel
+         * Endpoints don't implement any interface that exposes an
+         * isTransacted() method (as of Camel 2.18). So we have to hope our
+         * Endpoint has an isTransacted() method that we call with
+         * reflection. (This is the case with a JmsEndpoint, JdbcEndpoint and
+         * SqlEndpoint.)
+         * 
+         * If it doesn't have an isTransacted() method, we can't check
+         * whether it's transactional or not. We don't throw an exception in
+         * this case because it's possible there are transactional endpoints
+         * that don't implement an isTransacted() method.
+         */
+        try {
+            Method isTransactedMethod = endpoint.getClass().getMethod("isTransacted");
+            Boolean isTransacted = (Boolean) isTransactedMethod.invoke(endpoint);
+            if (isTransacted == Boolean.FALSE) {
+                return Boolean.FALSE;
+            }
+        } catch (NoSuchMethodException e) {
+            /* We can't check since it lacks the method. */
+            return null;
+        }
+
+        /**
+         * Do the same for the getTransactionManager() method.
+         */
+        try {
+            Method getTransactionManagerMethod = endpoint.getClass().getMethod("getTransactionManager");
+            PlatformTransactionManager txMgr = (PlatformTransactionManager) getTransactionManagerMethod
+                    .invoke(endpoint);
+            return txMgr != null;
+        } catch (NoSuchMethodException e) {
+            /* We can't check since it lacks the method. */
+            return null;
+        }
     }
 }
