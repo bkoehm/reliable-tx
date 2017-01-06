@@ -65,4 +65,8 @@ public interface ManagedSpringTransaction {
     void setTransactionName(String txName);
 
     boolean isSynchronizationEnforced();
+
+    boolean getOriginalTransactionWasSuspended();
+
+    String getOriginalTransactionName();
 }

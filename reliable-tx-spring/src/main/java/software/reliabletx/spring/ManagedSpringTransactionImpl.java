@@ -23,6 +23,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.AlternativeJdkIdGenerator;
 import org.springframework.util.IdGenerator;
@@ -56,6 +57,13 @@ import org.springframework.util.IdGenerator;
  * 
  * <li>{@link #beginTransaction()} must be called to start the transaction.
  * </li>
+ * 
+ * <li>After beginTransaction() has been called and synchronization is
+ * enabled, if a transaction was suspended then
+ * getOriginalTransactionWasSuspended() will return true and if it had a
+ * transaction name, it can be retrieved using getOriginalTransactionName().
+ * It is possible that an original transaction existed with a null
+ * transaction name.</li>
  * 
  * <li>When {@link #beginTransaction()} is called, a new transaction is
  * forced with {@link TransactionDefinition#PROPAGATION_REQUIRES_NEW}
@@ -104,6 +112,14 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
     private volatile boolean _isStarted;
     private DefaultTransactionDefinition _transactionDefinition = new DefaultTransactionDefinition(
             TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    /* If synchronization enabled: was there a transaction suspended when
+     * this managed transaction was begun? */
+    private boolean originalTransactionWasSuspended = false;
+    /* If synchronization enabled: the name of the transaction that was
+     * suspended when this managed transaction was begun. It's possible
+     * originalTransactionWasSuspended=true but the transaction name for that
+     * transaction was null. */
+    private String originalTransactionName = null;
 
     public ManagedSpringTransactionImpl() {
     }
@@ -224,6 +240,16 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
         assertSynchronizationEnforced();
 
+        /* If synchronization is supported and there's a transaction active,
+         * note the transaction name as the original name that we're
+         * suspending. */
+        boolean synchronizationOriginalTxActive = false;
+        String synchronizationOriginalTxName = null;
+        if (isSynchronizationSupported()) {
+            synchronizationOriginalTxActive = TransactionSynchronizationManager.isActualTransactionActive();
+            synchronizationOriginalTxName = TransactionSynchronizationManager.getCurrentTransactionName();
+        }
+
         if (getTransactionName() == null) {
             setTransactionName(getUniqueTransactionName());
         }
@@ -241,7 +267,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
         /* If synchronization is supported, add a synchronization callback
          * object. */
-        initNewSynchronization(txDef.getName());
+        initNewSynchronization(txDef.getName(), synchronizationOriginalTxActive, synchronizationOriginalTxName);
 
         this._isStarted = true;
     }
@@ -251,7 +277,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         assertWithException(_txStatus.isNewTransaction());
     }
 
-    private void initNewSynchronization(String txName) {
+    private void initNewSynchronization(String txName, boolean originalTxActive, String originalTxName) {
         if (isSynchronizationEnforced()) {
             assertWithException(TransactionSynchronizationManager.isSynchronizationActive());
             assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
@@ -265,6 +291,9 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
             /* Register the synchronization with the current transaction. */
             TransactionSynchronizationManager.registerSynchronization(_synchronization);
             _synchronization.assertTransactionCurrentAndActive();
+
+            this.originalTransactionWasSuspended = originalTxActive;
+            this.originalTransactionName = originalTxName;
         }
     }
 
@@ -334,8 +363,20 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         }
     }
 
+    protected void assertNotAlreadyCompleted() {
+        if (getTransactionStatus().isCompleted()) {
+            String msg = "This transaction is already completed: rolledBack=" + isRolledBack() + ", committed="
+                    + isCommitted() + ", state=" + getSynchronization().getState().name() + ".";
+            log.error(msg +
+                    "  This is the stack trace of the last state change for the synchronization to help you figure out where it was originally committed or rolled back",
+                    getSynchronization().getLastStateChangeAsThrowable());
+            throw new RuntimeException(msg);
+        }
+    }
+
     @Override
     public void commit() throws IllegalStateException {
+        assertNotAlreadyCompleted();
         if (getTransactionStatus().isRollbackOnly()) {
             if (log.isTraceEnabled()) {
                 log.trace("marked as rollback-only so rolling back instead of committing");
@@ -359,6 +400,7 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
     @Override
     public void rollback() throws IllegalStateException {
+        assertNotAlreadyCompleted();
         assertCurrentAndActive();
         if (log.isTraceEnabled()) {
             log.trace("rolling back");
@@ -389,6 +431,16 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         return getSynchronization().getState().equals(SynchronizationState.ROLLED_BACK);
     }
 
+    @Override
+    public boolean getOriginalTransactionWasSuspended() {
+        return originalTransactionWasSuspended;
+    }
+
+    @Override
+    public String getOriginalTransactionName() {
+        return originalTransactionName;
+    }
+
     protected static IdGenerator getIdGenerator() {
         return idGenerator;
     }
@@ -401,5 +453,27 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         if (!condition) {
             throw new RuntimeException("assertion failed");
         }
+    }
+
+    /**
+     * If synchronization is enabled, get the currently active
+     * SpringTransactionSynchronization.
+     */
+    public static SpringTransactionSynchronization getCurrentTransactionSynchronization() {
+        for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
+            if (sync instanceof SpringTransactionSynchronization) {
+                return ((SpringTransactionSynchronization) sync);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * If synchronization is enabled, get the currently active
+     * ManagedSpringTransaction.
+     */
+    public static ManagedSpringTransaction getCurrentManagedSpringTransaction() {
+        SpringTransactionSynchronization synchronization = getCurrentTransactionSynchronization();
+        return (synchronization != null ? synchronization.getOwningManagedTransaction() : null);
     }
 }
