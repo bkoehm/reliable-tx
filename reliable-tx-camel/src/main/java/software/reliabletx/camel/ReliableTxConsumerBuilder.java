@@ -78,11 +78,19 @@ public class ReliableTxConsumerBuilder {
     final Logger log = LoggerFactory.getLogger(getClass());
     public static final String ORIGINAL_TX_NAME_PROPERTY = "originalTxName";
     public static final String MANAGED_TX_PROPERTY = "managedTx";
+    public static final String ALREADY_COMPLETE_PROPERTY = "exchangeAlreadyComplete";
 
     private String transactionPolicyRefName;
     private ErrorHandlerBuilder errorHandler;
     protected PlatformTransactionManager transactionManager;
     private boolean checkConfiguration = true;
+    /* Defaults to true and if true the camel processor will throw an
+     * exception if there isn't an existing transaction name at the beginning
+     * of the route. For example, if the from endpoint is a JMS endpoint,
+     * then the expectation will be that the JMS MessageListener has already
+     * started a transaction and it has set a non-null transaction name. Note
+     * that it is possible to be in a transaction but the tx name is null. */
+    private boolean enforceExistanceOfEnteringTransactionName = true;
 
     public ReliableTxConsumerBuilder() {
     }
@@ -106,6 +114,18 @@ public class ReliableTxConsumerBuilder {
 
     public void setErrorHandler(ErrorHandlerBuilder errorHandler) {
         this.errorHandler = errorHandler;
+    }
+
+    public boolean getEnforceExistanceOfEnteringTransactionName() {
+        return enforceExistanceOfEnteringTransactionName;
+    }
+
+    public void setEnforceExistanceOfEnteringTransactionName(boolean enforceExistanceOfEnteringTransactionName) {
+        this.enforceExistanceOfEnteringTransactionName = enforceExistanceOfEnteringTransactionName;
+    }
+
+    public PlatformTransactionManager getTransactionManager() {
+        return transactionManager;
     }
 
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
@@ -219,6 +239,15 @@ public class ReliableTxConsumerBuilder {
                 .onCompletion().modeBeforeConsumer().process(new Processor() {
                     @Override
                     public void process(Exchange exchange) throws Exception {
+                        // I'm not sure what causes onCompletion() to
+                        // sometimes be called multiple times on the same
+                        // exchange.
+                        if (exchange.getProperty(ALREADY_COMPLETE_PROPERTY).equals(Boolean.TRUE)) {
+                            log.debug("onCompletion() has already ran for exchange " + exchange.getExchangeId());
+                            return;
+                        }
+                        exchange.setProperty(ALREADY_COMPLETE_PROPERTY, Boolean.TRUE);
+
                         ManagedSpringTransaction managedTx = getManagedSpringTransaction(exchange);
                         assertWithException(managedTx != null);
                         assertWithException(managedTx.getTransactionStatus() != null);
@@ -262,7 +291,7 @@ public class ReliableTxConsumerBuilder {
                                  * it rollback-only would just be a no-op. */
                             }
                         } catch (Exception e) {
-                            throw new ReliableTxCamelException("Managed transaction rollback failed", e);
+                            throw new ReliableTxCamelException("Managed transaction commit or rollback failed", e);
                         }
 
                         /* commit() or rollback() did not throw an exception,
@@ -279,7 +308,12 @@ public class ReliableTxConsumerBuilder {
                          * If we want to get aggressive, we can also mark the
                          * current and original transactions for rollback
                          * since not in expected state. */
-                        if (!originalTxName.equals(TransactionSynchronizationManager.getCurrentTransactionName())) {
+                        if (getEnforceExistanceOfEnteringTransactionName() && originalTxName == null) {
+                            throw new ReliableTxCamelException(
+                                    "The original transaction name was null and enforceExistanceOfEnteringTransactionName is true.");
+                        }
+                        if (originalTxName != null && !originalTxName
+                                .equals(TransactionSynchronizationManager.getCurrentTransactionName())) {
                             String msg = "The managed transaction has been committed or rolled back but the original transaction has not been resumed.  "
                                     + "It's possible that a third transaction was improperly started by code executed by the "
                                     + "route destination.  originalTxName=" + originalTxName + ", currentTxName="
@@ -344,30 +378,36 @@ public class ReliableTxConsumerBuilder {
                          * expect it to resume when we commit our explicit
                          * tx. */
 
-                        /* The exchange should be transacted. */
-                        if (!exchange.isTransacted()) {
-                            throw new RuntimeException("This exchange isn't transacted.  Is origin "
-                                    + origin.getEndpointUri() + " transactional?  The origin Endpoint class is "
-                                    + origin.getClass().getName());
-                        }
-
                         /* The current transaction should be a managed
                          * transaction, thanks to
-                         * ManagedNestedTransactionTemplate. */
+                         * ManagedNestedTransactionTemplate used by the
+                         * errorHandler (errorHandler.transactionTemplate). */
                         ManagedSpringTransaction managedTx = ManagedNestedTransactionTemplate
                                 .getExistingManagedTransaction();
                         assertWithException(managedTx != null);
                         assertWithException(managedTx.isCurrentAndActive());
 
+                        /* The exchange should be transacted. */
+                        if (!exchange.isTransacted()) {
+                            managedTx.markRollbackOnly();
+                            throw new ReliableTxCamelException("This exchange isn't transacted.  Is origin "
+                                    + origin.getEndpointUri() + " transactional?  The origin Endpoint class is "
+                                    + origin.getClass().getName());
+                        }
+
                         /* The ManagedNestedTransactionTemplate may have
                          * suspended a transaction in order to create a new
                          * nested transaction at the start of this exchange. */
-                        if (TransactionSynchronizationManager
-                                .hasResource(ManagedNestedTransactionTemplate.ORIGINAL_TX_NAME_RESOURCE)) {
-                            String originalTxName = (String) TransactionSynchronizationManager
-                                    .getResource(ManagedNestedTransactionTemplate.ORIGINAL_TX_NAME_RESOURCE);
+                        String originalTxName = managedTx.getOriginalTransactionName();
+                        if (originalTxName != null || managedTx.getOriginalTransactionWasSuspended()) {
                             log.debug("Original tx name that was suspended for this exchange: " + originalTxName);
                             exchange.setProperty(ORIGINAL_TX_NAME_PROPERTY, originalTxName);
+                        }
+                        if (getEnforceExistanceOfEnteringTransactionName()
+                                && exchange.getProperty(ORIGINAL_TX_NAME_PROPERTY) == null) {
+                            managedTx.markRollbackOnly();
+                            throw new ReliableTxCamelException(
+                                    "Upon entering the route, before starting the managed transaction for the route, the original transaction name was null.  Either no transaction was active or there was an active transaction with a null transaction name.  The expectation is there should be an existing transaction with a name upon entering the route.  If this is not the case, set enforceExistanceOfEnteringTransactionName to false.");
                         }
 
                         /* this managed transaction belongs to this exchange */
