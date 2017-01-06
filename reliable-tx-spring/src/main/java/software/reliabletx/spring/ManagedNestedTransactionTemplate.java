@@ -135,15 +135,17 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
         if (startNewTransaction) {
             /* start a new ManagedSpringTransaction */
             if (currentTransactionExists) {
-                log.info("Suspending current transaction "
+                log.debug("Suspending current transaction "
                         + TransactionSynchronizationManager.getCurrentTransactionName());
                 if (TransactionSynchronizationManager.hasResource(ORIGINAL_TX_NAME_RESOURCE)) {
                     TransactionSynchronizationManager.unbindResourceIfPossible(ORIGINAL_TX_NAME_RESOURCE);
                 }
                 // TODO: This should probably really go into the
                 // ManagedSpringTransaction.
-                TransactionSynchronizationManager.bindResource(ORIGINAL_TX_NAME_RESOURCE,
-                        TransactionSynchronizationManager.getCurrentTransactionName());
+                if (TransactionSynchronizationManager.getCurrentTransactionName() != null) {
+                    TransactionSynchronizationManager.bindResource(ORIGINAL_TX_NAME_RESOURCE,
+                            TransactionSynchronizationManager.getCurrentTransactionName());
+                }
             }
             DefaultTransactionDefinition requiresNew = new DefaultTransactionDefinition(this);
             requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -153,7 +155,7 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
             } catch (Throwable t) {
                 throw new TransactionSystemException("Couldn't begin transaction", t);
             }
-            log.info("Started a new transaction: " + managedTx.getTransactionName());
+            log.debug("Started a new transaction: " + managedTx.getTransactionName());
             if (!managedTx.getTransactionName().equals(TransactionSynchronizationManager.getCurrentTransactionName())) {
                 throw new RuntimeException(
                         "TransactionSynchronizationManager is not reporting the right transaction name.  It's reporting "
