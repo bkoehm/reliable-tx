@@ -17,6 +17,9 @@
 package software.reliabletx.spring;
 
 import java.io.Serializable;
+import java.io.StringWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +40,7 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
     private ManagedSpringTransaction owningTx;
     private SynchronizationState state;
     private String txName;
+    private StackTraceElement[] lastStateChangeStackTrace;
 
     public SpringTransactionSynchronization(ManagedSpringTransaction owningTx) {
         this.owningTx = owningTx;
@@ -53,6 +57,7 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
         assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
         this.txName = TransactionSynchronizationManager.getCurrentTransactionName();
         this.state = SynchronizationState.ACTIVE;
+        updateStackTrace();
     }
 
     public boolean isTransactionCurrent() {
@@ -101,7 +106,10 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
                 log.warn("Synchronization state for transaction is not active");
             }
             if (!isTransactionCurrent(txName)) {
-                log.warn("Transaction " + txName + " is not the current transaction.  Instead, TransactionSynchronizationManager is reporting " + TransactionSynchronizationManager.getCurrentTransactionName() + " as the current transaction.");
+                log.warn("Transaction " + txName
+                        + " is not the current transaction.  Instead, TransactionSynchronizationManager is reporting "
+                        + TransactionSynchronizationManager.getCurrentTransactionName()
+                        + " as the current transaction.");
             } else if (!TransactionSynchronizationManager.isActualTransactionActive()) {
                 log.warn("The TransactionSynchronizationManager says the current transaction is not active");
             }
@@ -118,11 +126,13 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
     public void suspend() {
         assertTransactionCurrent();
         state = SynchronizationState.SUSPENDED;
+        updateStackTrace();
     }
 
     @Override
     public void resume() {
         state = SynchronizationState.ACTIVE;
+        updateStackTrace();
         assertTransactionCurrentAndActive();
     }
 
@@ -160,6 +170,7 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
                 state = SynchronizationState.COMPLETED_BUT_UNKNOWN;
                 break;
         }
+        updateStackTrace();
     }
 
     public SynchronizationState getState() {
@@ -174,5 +185,34 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
         if (!condition) {
             throw new RuntimeException("assertion failed");
         }
+    }
+
+    public StackTraceElement[] getLastStateChangeStackTrace() {
+        return lastStateChangeStackTrace;
+    }
+
+    public Throwable getLastStateChangeAsThrowable() {
+        Throwable t = new Throwable();
+        t.setStackTrace(lastStateChangeStackTrace);
+        return t;
+    }
+
+    public String getLastStateChangeStackTraceAsString() throws IOException {
+        Throwable t = getLastStateChangeAsThrowable();
+        StringWriter sw = new StringWriter();
+        PrintWriter writer = new PrintWriter(sw);
+        String str = null;
+        try {
+            t.printStackTrace(writer);
+            str = sw.toString();
+        } finally {
+            writer.close();
+            sw.close();
+        }
+        return str;
+    }
+
+    protected void updateStackTrace() {
+        this.lastStateChangeStackTrace = Thread.currentThread().getStackTrace();
     }
 }
