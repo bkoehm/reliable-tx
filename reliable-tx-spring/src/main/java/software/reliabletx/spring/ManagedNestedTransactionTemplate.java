@@ -39,11 +39,6 @@ import org.springframework.transaction.support.TransactionTemplate;
  * started.</li>
  * <li>If the propagation behavior doesn't support new transactions and the
  * current transaction isn't managed, an exception will be thrown.</li>
- * <li>If a transaction is suspended and it has a transaction name, it can be
- * retrieved using
- * TransactionSynchronizationManager.getBinding(ORIGINAL_TX_NAME_RESOURCE)
- * for as long as the new managed transaction stays the current and active
- * transaction.</li>
  * </ul>
  * 
  * <p>
@@ -78,7 +73,6 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
 
     private static final long serialVersionUID = -400074375111451364L;
     final Logger log = LoggerFactory.getLogger(getClass());
-    public static final String ORIGINAL_TX_NAME_RESOURCE = "originalTxName";
 
     public ManagedNestedTransactionTemplate() {
         super();
@@ -114,13 +108,7 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
         } else if (propagation == TransactionDefinition.PROPAGATION_REQUIRED
                 || propagation == TransactionDefinition.PROPAGATION_SUPPORTS) {
             if (currentTransactionExists) {
-                ManagedSpringTransaction managedTx = null;
-                for (TransactionSynchronization sync : TransactionSynchronizationManager.getSynchronizations()) {
-                    if (sync instanceof SpringTransactionSynchronization) {
-                        managedTx = ((SpringTransactionSynchronization) sync).getOwningManagedTransaction();
-                        break;
-                    }
-                }
+                ManagedSpringTransaction managedTx = ManagedSpringTransactionImpl.getCurrentManagedSpringTransaction();
                 /* Suspend the existing transaction and start a new
                  * transaction if the existing transaction is not managed. */
                 startNewTransaction = managedTx == null;
@@ -137,15 +125,6 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
             if (currentTransactionExists) {
                 log.debug("Suspending current transaction "
                         + TransactionSynchronizationManager.getCurrentTransactionName());
-                if (TransactionSynchronizationManager.hasResource(ORIGINAL_TX_NAME_RESOURCE)) {
-                    TransactionSynchronizationManager.unbindResourceIfPossible(ORIGINAL_TX_NAME_RESOURCE);
-                }
-                // TODO: This should probably really go into the
-                // ManagedSpringTransaction.
-                if (TransactionSynchronizationManager.getCurrentTransactionName() != null) {
-                    TransactionSynchronizationManager.bindResource(ORIGINAL_TX_NAME_RESOURCE,
-                            TransactionSynchronizationManager.getCurrentTransactionName());
-                }
             }
             DefaultTransactionDefinition requiresNew = new DefaultTransactionDefinition(this);
             requiresNew.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
