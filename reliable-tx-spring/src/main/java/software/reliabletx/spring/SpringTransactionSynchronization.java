@@ -101,9 +101,9 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
                 log.warn("Synchronization state for transaction is not active");
             }
             if (!isTransactionCurrent(txName)) {
-                log.warn("Transaction is not the current transaction");
+                log.warn("Transaction " + txName + " is not the current transaction.  Instead, TransactionSynchronizationManager is reporting " + TransactionSynchronizationManager.getCurrentTransactionName() + " as the current transaction.");
             } else if (!TransactionSynchronizationManager.isActualTransactionActive()) {
-                log.warn("The TransactionSynchronizationManager says the transaction is not active");
+                log.warn("The TransactionSynchronizationManager says the current transaction is not active");
             }
         }
         return SynchronizationState.ACTIVE.equals(state) && isTransactionCurrent(txName)
@@ -122,8 +122,8 @@ public class SpringTransactionSynchronization implements TransactionSynchronizat
 
     @Override
     public void resume() {
-        assertTransactionCurrentAndActive();
         state = SynchronizationState.ACTIVE;
+        assertTransactionCurrentAndActive();
     }
 
     @Override
