@@ -242,7 +242,8 @@ public class ReliableTxConsumerBuilder {
                         // I'm not sure what causes onCompletion() to
                         // sometimes be called multiple times on the same
                         // exchange.
-                        if (exchange.getProperty(ALREADY_COMPLETE_PROPERTY).equals(Boolean.TRUE)) {
+                        if (exchange.getProperty(ALREADY_COMPLETE_PROPERTY) != null
+                                && exchange.getProperty(ALREADY_COMPLETE_PROPERTY).equals(Boolean.TRUE)) {
                             log.debug("onCompletion() has already ran for exchange " + exchange.getExchangeId());
                             return;
                         }
