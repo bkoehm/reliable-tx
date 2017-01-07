@@ -19,7 +19,7 @@ package software.reliabletx.camel;
 /**
  * @author Brian Koehmstedt
  */
-public class ReliableTxCamelException extends Exception {
+public class ReliableTxCamelException extends RuntimeException {
     private static final long serialVersionUID = -9167433571330683218L;
 
     public ReliableTxCamelException(String msg) {
