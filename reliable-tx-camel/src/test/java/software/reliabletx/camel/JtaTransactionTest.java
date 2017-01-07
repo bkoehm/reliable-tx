@@ -45,7 +45,7 @@ import software.reliabletx.camel.activemq.QueueStatistics;
  * @author Brian Koehmstedt
  */
 public class JtaTransactionTest extends ActiveMQTestCase {
-    protected Logger log = LoggerFactory.getLogger(getClass());
+    protected Logger log = LoggerFactory.getLogger(ActiveMQTestCase.class);
 
     private static final int WAIT_FOR_REPLY_TIMEOUT = 5000; // milliseconds
 

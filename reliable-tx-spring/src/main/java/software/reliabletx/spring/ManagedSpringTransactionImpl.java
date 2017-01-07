@@ -82,7 +82,7 @@ import org.springframework.util.IdGenerator;
  */
 public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(ManagedSpringTransactionImpl.class);
 
     private static final AlternativeJdkIdGenerator idGenerator = new AlternativeJdkIdGenerator();
 

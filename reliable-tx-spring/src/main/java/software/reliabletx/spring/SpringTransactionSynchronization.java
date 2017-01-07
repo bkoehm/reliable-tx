@@ -35,7 +35,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public class SpringTransactionSynchronization implements TransactionSynchronization, Serializable {
     private static final long serialVersionUID = 352975547922387276L;
 
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(SpringTransactionSynchronization.class);
 
     private ManagedSpringTransaction owningTx;
     private SynchronizationState state;

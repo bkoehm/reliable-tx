@@ -72,7 +72,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ManagedNestedTransactionTemplate extends TransactionTemplate {
 
     private static final long serialVersionUID = -400074375111451364L;
-    final Logger log = LoggerFactory.getLogger(getClass());
+    final Logger log = LoggerFactory.getLogger(ManagedNestedTransactionTemplate.class);
 
     public ManagedNestedTransactionTemplate() {
         super();

@@ -48,7 +48,7 @@ public class ExtendedAnnotationTransactionAttributeSource extends AnnotationTran
     protected static class ExtendedSpringTransactionAnnotationParser extends SpringTransactionAnnotationParser {
 
         private static final long serialVersionUID = 5958837260277006521L;
-        private final Logger log = LoggerFactory.getLogger(getClass());
+        private final Logger log = LoggerFactory.getLogger(ExtendedSpringTransactionAnnotationParser.class);
 
         public static final String ATTR_NAME = "name";
         public static final String ATTR_SUSPEND_ONLY = "suspendOnly";

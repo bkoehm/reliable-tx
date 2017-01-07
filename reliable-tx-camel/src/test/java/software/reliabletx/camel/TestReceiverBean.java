@@ -27,7 +27,7 @@ import org.springframework.transaction.PlatformTransactionManager;
  * @author Brian Koehmstedt
  */
 public class TestReceiverBean {
-    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final Logger log = LoggerFactory.getLogger(TestReceiverBean.class);
 
     protected PlatformTransactionManager jmsTransactionManager;
     protected ConcurrentLinkedDeque<String> fifo = new ConcurrentLinkedDeque<String>();
