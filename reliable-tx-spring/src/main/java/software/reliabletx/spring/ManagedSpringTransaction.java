@@ -40,6 +40,8 @@ public interface ManagedSpringTransaction {
 
     TransactionStatus getTransactionStatus();
 
+    SpringTransactionSynchronization getSynchronization();
+
     SynchronizationState getSynchronizationState();
 
     void commit() throws IllegalStateException;

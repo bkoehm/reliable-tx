@@ -163,7 +163,8 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         return _isStarted;
     }
 
-    protected SpringTransactionSynchronization getSynchronization() {
+    @Override
+    public SpringTransactionSynchronization getSynchronization() {
         return _synchronization;
     }
 
@@ -367,8 +368,8 @@ public class ManagedSpringTransactionImpl implements ManagedSpringTransaction {
         if (getTransactionStatus().isCompleted()) {
             String msg = "This transaction is already completed: rolledBack=" + isRolledBack() + ", committed="
                     + isCommitted() + ", state=" + getSynchronization().getState().name() + ".";
-            log.error(msg +
-                    "  This is the stack trace of the last state change for the synchronization to help you figure out where it was originally committed or rolled back",
+            log.error(
+                    msg + "  This is the stack trace of the last state change for the synchronization to help you figure out where it was originally committed or rolled back",
                     getSynchronization().getLastStateChangeAsThrowable());
             throw new RuntimeException(msg);
         }
