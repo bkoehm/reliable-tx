@@ -76,3 +76,32 @@ but:
     configured to do so, has the opportunity to move the failed message to a
     DLQ.  DLQ-handling behavior is entirely dependent on the broker
     configuration.
+
+### Chaining route contexts
+
+If you build a route that contain multiple contexts, then as a message flows
+through the route during the exchange, a new transaction will be created for
+each route context per the exchange.
+
+For example:
+```
+consumerBuilder
+    .from(jmsQueueUri, ErrorResponseMode.EXCHANGE_FAILURE_NO_REPLY, this)
+    .to(middleMan);
+consumerBuilder
+    .from(middleMan, ErrorResponseMode.EXCHANGE_FAILURE_NO_REPLY, this)
+    .to(terminatingEndpoint);
+```
+
+* Managed Transaction #1: as the message routes between `jmsQueueUri` and
+  the `middleMan`.
+* Managed Transaction #2: as the message routes between `middleMan` and the
+  `terminatingEndpoint`.
+
+Note the second route, `middleMan` to `terminatingEndpoint`, doesn't
+necessarily have to be built with the `consumerBuilder` for these semantics
+to hold true.  The same is true if only the first route was built with
+`consumerBuilder`.
+
+This may differ from normal Camel operation, where without
+`consumerBuilder`, the exchange could be one transaction.
