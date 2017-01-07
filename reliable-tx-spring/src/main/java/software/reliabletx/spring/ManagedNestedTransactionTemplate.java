@@ -140,6 +140,15 @@ public class ManagedNestedTransactionTemplate extends TransactionTemplate {
                         "TransactionSynchronizationManager is not reporting the right transaction name.  It's reporting "
                                 + TransactionSynchronizationManager.getCurrentTransactionName());
             }
+            // We don't want super.execute starting a new transaction
+            int restorePropagation = getPropagationBehavior();
+            setPropagationBehavior(TransactionDefinition.PROPAGATION_MANDATORY);
+            try {
+                return super.execute(action);
+            } finally {
+                setPropagationBehavior(restorePropagation);
+            }
+
         } else if (currentTransactionExists && getExistingManagedTransaction() == null) {
             throw new RuntimeException(
                     "A current unmanaged transaction exists but the propagation behavior is not one that supports suspending the current transaction and creating a new managed transaction.");
