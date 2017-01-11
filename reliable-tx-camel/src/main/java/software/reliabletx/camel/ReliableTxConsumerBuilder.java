@@ -483,8 +483,8 @@ public class ReliableTxConsumerBuilder {
      *            The index of the consumerBuilders used in the exchange
      *            starts with 0.
      */
-    public static ManagedSpringTransaction getManagedSpringTransaction(Exchange exchange, int builderIndex) {
-        return exchange.getProperty(builderIndex + ":" + MANAGED_TX_PROPERTY_SUFFIX, ManagedSpringTransaction.class);
+    public static ManagedSpringTransaction getManagedSpringTransaction(Exchange exchange, Integer builderIndex) {
+        return (builderIndex != null ? exchange.getProperty(builderIndex + ":" + MANAGED_TX_PROPERTY_SUFFIX, ManagedSpringTransaction.class) : null);
     }
 
     /**
