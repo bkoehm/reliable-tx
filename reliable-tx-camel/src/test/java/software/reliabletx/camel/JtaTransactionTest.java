@@ -106,10 +106,10 @@ public class JtaTransactionTest extends ActiveMQTestCase {
     }
 
     protected MessageListenerContainerFactory getMessageListenerFactory() {
-        return getBean("jmsListenerConnectionFactory", MessageListenerContainerFactory.class);
+        return getBean("jmsListenerContainerFactory", MessageListenerContainerFactory.class);
     }
 
-    protected void setListenerConnectionFactory(JmsEndpoint endpoint, MessageListenerContainerFactory factory) {
+    protected void setListenerContainerFactory(JmsEndpoint endpoint, MessageListenerContainerFactory factory) {
         endpoint.getConfiguration().setMessageListenerContainerFactory(factory);
     }
 
@@ -132,7 +132,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         this.testTransactedCLQueueEndpoint = resolveMandatoryEndpoint(
                 "activemq:queue:" + testTransactedCLQueueName + "?includeSentJMSMessageID=true&requestTimeout="
                         + WAIT_FOR_REPLY_TIMEOUT + "&transacted=true&consumerType=Custom");
-        setListenerConnectionFactory((JmsEndpoint) testTransactedCLQueueEndpoint, getMessageListenerFactory());
+        setListenerContainerFactory((JmsEndpoint) testTransactedCLQueueEndpoint, getMessageListenerFactory());
         this.testTransactedQueueEndpointForProducer = resolveMandatoryEndpointForProducer("activemq:queue:"
                 + testTransactedQueueName + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT);
         this.testTransactedCLQueueEndpointForProducer = resolveMandatoryEndpointForProducer("activemq:queue:"
@@ -145,7 +145,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
                 "activemq:queue:" + testFailingConsumerWithReplyExceptionsTransactedCLQueueName
                         + "?includeSentJMSMessageID=true" + "&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT
                         + "&transacted=true&consumerType=Custom");
-        setListenerConnectionFactory((JmsEndpoint) testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpoint,
+        setListenerContainerFactory((JmsEndpoint) testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpoint,
                 getMessageListenerFactory());
         this.testFailingConsumerWithReplyExceptionsTransactedQueueEndpointForProducer = resolveMandatoryEndpointForProducer(
                 "activemq:queue:" + testFailingConsumerWithReplyExceptionsTransactedQueueName
@@ -161,7 +161,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
                 "activemq:queue:" + testFailingConsumerWithExchangeFailuresTransactedCLQueueName
                         + "?includeSentJMSMessageID=true" + "&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT
                         + "&transacted=true&consumerType=Custom");
-        setListenerConnectionFactory((JmsEndpoint) testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpoint,
+        setListenerContainerFactory((JmsEndpoint) testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpoint,
                 getMessageListenerFactory());
         this.testFailingConsumerWithExchangeFailuresTransactedQueueEndpointForProducer = resolveMandatoryEndpointForProducer(
                 "activemq:queue:" + testFailingConsumerWithExchangeFailuresTransactedQueueName

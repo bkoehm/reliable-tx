@@ -183,7 +183,7 @@
         <property name="jmsTransactionManager" ref="jtaTransactionManager" />
     </bean>
 
-    <bean id="jmsListenerConnectionFactory"
+    <bean id="jmsListenerContainerFactory"
         class="software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory" />
 
 </beans>

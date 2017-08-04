@@ -115,14 +115,14 @@ so a reliabletx managed transaction is started right at the beginning.
 
 To get Camel to use this enhanced message listener, create a bean:
 ```
-<bean id="jmsListenerConnectionFactory"
+<bean id="jmsListenerContainerFactory"
         class="software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory" />
 ```
 
 Then however you create your JmsEndpoint, adjust the endpoint configuration
 like so:
 ```
-myJmsEndpoint.getConfiguration().setListenerConnectionFactory(jmsListenerConnectionFactory);
+myJmsEndpoint.getConfiguration().setMessageListenerContainerFactory(jmsListenerContainerFactory);
 myJmsEndpoint.getConfiguration().setConsumerType(ConsumerType.Custom);
 
 ```
