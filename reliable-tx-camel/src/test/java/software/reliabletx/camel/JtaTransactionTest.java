@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import software.reliabletx.camel.activemq.QueueStatistics;
-import software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory;
 
 /**
  * Tests reliable transactions for Camel using a JTA transaction manager.
