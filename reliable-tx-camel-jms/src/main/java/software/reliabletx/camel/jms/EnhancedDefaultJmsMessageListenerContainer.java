@@ -77,7 +77,18 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
                     rollbackOnException(managedTx, err);
                     throw err;
                 }
+                if (logger.isDebugEnabled()) {
+                    logger.debug("receiveAndExecute(): about to commit " + managedTx.getTransactionName());
+                }
                 managedTx.commit();
+                if (!managedTx.isCommitted()) {
+                    throw new RuntimeException("Something went wrong trying to commit the managed transaction "
+                            + managedTx.getTransactionName());
+                }
+                if (logger.isDebugEnabled()) {
+                    logger.debug("receiveAndExecute(): committed " + managedTx.getTransactionName());
+                }
+
                 return messageReceived;
             } finally {
                 deassociateCurrentManagedTransaction();
@@ -133,7 +144,9 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
      * Perform a rollback, handling rollback exceptions properly.
      */
     protected void rollbackOnException(ManagedSpringTransaction managedTx, Throwable ex) {
-        logger.debug("Initiating transaction rollback on listener exception", ex);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Initiating transaction rollback on listener exception", ex);
+        }
         try {
             managedTx.rollback();
         } catch (RuntimeException ex2) {
@@ -146,15 +159,30 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
     }
 
     protected ManagedSpringTransaction establishTransaction() {
-        ManagedSpringTransactionImpl managedTx = new ManagedSpringTransactionImpl(getTransactionManager(),
-                (isAppendingRandomToTxName() ? getTransactionName() + "#" + nextRandom() : getTransactionName()));
-        if (managedTx.getTransactionDefinition() instanceof DefaultTransactionDefinition) {
-            ((DefaultTransactionDefinition) managedTx.getTransactionDefinition()).setTimeout(getTransactionTimeout());
-        }
-        managedTx.beginTransaction();
-        if (!managedTx.isCurrentAndActive()) {
-            throw new RuntimeException(
-                    "Something went wrong trying to establish a new managed transaction: the new transaction is not current nor active");
+        ManagedSpringTransactionImpl managedTx = (ManagedSpringTransactionImpl) ManagedSpringTransactionImpl
+                .getCurrentManagedSpringTransaction();
+        if (managedTx == null || !managedTx.isCurrentAndActive()) {
+            managedTx = new ManagedSpringTransactionImpl(getTransactionManager(),
+                    (isAppendingRandomToTxName() ? getTransactionName() + "#" + nextRandom() : getTransactionName()));
+            if (managedTx.getTransactionDefinition() instanceof DefaultTransactionDefinition) {
+                ((DefaultTransactionDefinition) managedTx.getTransactionDefinition())
+                        .setTimeout(getTransactionTimeout());
+            }
+            managedTx.beginTransaction();
+            if (!managedTx.isCurrentAndActive()) {
+                throw new RuntimeException("Something went wrong trying to establish a new managed transaction for "
+                        + managedTx.getTransactionName() + ": the new transaction is not current nor active");
+            }
+            if (logger.isDebugEnabled()) {
+                logger.debug(
+                        "establishTransaction() there wasn't an already current and active managed transaction so established a new transaction: "
+                                + managedTx.getTransactionName());
+            }
+        } else {
+            if (logger.isDebugEnabled()) {
+                logger.debug("establishTransaction(): keeping an already current and active managed transaction: "
+                        + managedTx.getTransactionName());
+            }
         }
         currentManagedTransaction.set(managedTx);
         return managedTx;
