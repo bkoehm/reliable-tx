@@ -105,3 +105,26 @@ to hold true.  The same is true if only the first route was built with
 
 This may differ from normal Camel operation, where without
 `consumerBuilder`, the exchange could be one transaction.
+
+### Using EnhancedDefaultJmsMessageListenerContainer
+
+If you're consuming transactionally off a JMS source point (e.g., a queue or
+topic), you probably want to use
+`software.reliabletx.camel.jms.EnhancedDefaultJmsMessageListenerContainer`
+so a reliabletx managed transaction is started right at the beginning.
+
+To get Camel to use this enhanced message listener, create a bean:
+```
+<bean id="jmsListenerConnectionFactory"
+        class="software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory" />
+```
+
+Then however you create your JmsEndpoint, adjust the endpoint configuration
+like so:
+```
+myJmsEndpoint.getConfiguration().setListenerConnectionFactory(jmsListenerConnectionFactory);
+myJmsEndpoint.getConfiguration().setConsumerType(ConsumerType.Custom);
+
+```
+or you can use Spring XML syntax to do it if you're creating your endpoint
+as a bean.
