@@ -17,6 +17,7 @@
 package software.reliabletx.camel.jms;
 
 import java.security.SecureRandom;
+import java.util.Random;
 
 import javax.jms.JMSException;
 import javax.jms.MessageConsumer;
@@ -39,7 +40,7 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
     private String transactionName;
     private int transactionTimeout;
     private boolean appendRandomToTxName = true;
-    private SecureRandom random;
+    private Random random;
 
     private ThreadLocal<ManagedSpringTransaction> currentManagedTransaction = new ThreadLocal<ManagedSpringTransaction>();
 
@@ -124,7 +125,7 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
         }
 
         if (isAppendingRandomToTxName()) {
-            random = new SecureRandom();
+            random = new Random(new SecureRandom().nextLong());
         }
     }
 
