@@ -122,11 +122,6 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
 
     /**
      * Perform a rollback, handling rollback exceptions properly.
-     * 
-     * @param status
-     *            object representing the transaction
-     * @param ex
-     *            the thrown listener exception or error
      */
     protected void rollbackOnException(ManagedSpringTransaction managedTx, Throwable ex) {
         logger.debug("Initiating transaction rollback on listener exception", ex);
