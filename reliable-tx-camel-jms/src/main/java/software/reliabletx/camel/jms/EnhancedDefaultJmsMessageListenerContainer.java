@@ -16,6 +16,8 @@
  */
 package software.reliabletx.camel.jms;
 
+import java.security.SecureRandom;
+
 import javax.jms.JMSException;
 import javax.jms.MessageConsumer;
 import javax.jms.Session;
@@ -36,6 +38,8 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
 
     private String transactionName;
     private int transactionTimeout;
+    private boolean appendRandomToTxName = true;
+    private SecureRandom random;
 
     private ThreadLocal<ManagedSpringTransaction> currentManagedTransaction = new ThreadLocal<ManagedSpringTransaction>();
 
@@ -118,6 +122,10 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
         if (transactionName == null) {
             this.transactionName = getBeanName();
         }
+
+        if (isAppendingRandomToTxName()) {
+            random = new SecureRandom();
+        }
     }
 
     /**
@@ -137,8 +145,8 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
     }
 
     protected ManagedSpringTransaction establishTransaction() {
-        ManagedSpringTransactionImpl managedTx = new ManagedSpringTransactionImpl(getTransactionManager());
-        managedTx.setTransactionName(getTransactionName());
+        ManagedSpringTransactionImpl managedTx = new ManagedSpringTransactionImpl(getTransactionManager(),
+                (isAppendingRandomToTxName() ? getTransactionName() + "#" + nextRandom() : getTransactionName()));
         if (managedTx.getTransactionDefinition() instanceof DefaultTransactionDefinition) {
             ((DefaultTransactionDefinition) managedTx.getTransactionDefinition()).setTimeout(getTransactionTimeout());
         }
@@ -157,5 +165,17 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
 
     public ManagedSpringTransaction getCurrentManagedTransaction() {
         return currentManagedTransaction.get();
+    }
+
+    protected boolean isAppendingRandomToTxName() {
+        return appendRandomToTxName;
+    }
+
+    protected void setAppendingRandomToTxName(boolean appendRandomToTxName) {
+        this.appendRandomToTxName = appendRandomToTxName;
+    }
+
+    protected int nextRandom() {
+        return random.nextInt();
     }
 }
