@@ -275,7 +275,7 @@ public class ReliableTxConsumerBuilder {
         boolean managedTxCreated = false;
         ManagedSpringTransactionImpl managedTx = (ManagedSpringTransactionImpl) ManagedSpringTransactionImpl
                 .getCurrentManagedSpringTransaction();
-        if (managedTx == null) {
+        if (managedTx == null || !managedTx.isCurrentAndActive()) {
             if (log.isDebugEnabled()) {
                 log.debug(
                         "A managed transaction is not current and active or synchronization is not enabled, so establishing a new managed transaction");
@@ -371,7 +371,7 @@ public class ReliableTxConsumerBuilder {
              * exchange. */
             if (log.isDebugEnabled()) {
                 log.debug(
-                        "Didn't create the transaction at the start of the exchange so not yet finalizing the transaction.");
+                        "For routeId=" + route.getId() + ", didn't create transaction " + managedTx.getTransactionName() + " at the start of the exchange so not yet finalizing the transaction.");
             }
             return false;
         }
