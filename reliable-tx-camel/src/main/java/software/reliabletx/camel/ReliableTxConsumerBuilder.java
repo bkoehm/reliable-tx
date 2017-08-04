@@ -79,16 +79,21 @@ public class ReliableTxConsumerBuilder {
     public static final String BUILDER_ROUTE_INDEX_PROPERTY_SUFFIX = "builderRouteIndex";
     /* prefixed with the route index (which starts with 0) */
     public static final String MANAGED_TX_PROPERTY_SUFFIX = "managedTx";
+    /* prefixed with the route index (which starts with 0) - if true, then a
+     * new tx was started in the exchange, otherwise there was already an
+     * existing managed tx */
+    public static final String MANAGED_TX_CREATED_PROPERTY_SUFFIX = "managedTxCreated";
     private String transactionPolicyRefName;
     private ErrorHandlerBuilder errorHandler;
     protected PlatformTransactionManager transactionManager;
     private boolean checkConfiguration = true;
     /* Defaults to true and if true the camel processor will throw an
      * exception if there isn't an existing transaction name at the beginning
-     * of the route. For example, if the from endpoint is a JMS endpoint,
-     * then the expectation will be that the JMS MessageListener has already
-     * started a transaction and it has set a non-null transaction name. Note
-     * that it is possible to be in a transaction but the tx name is null. */
+     * of the route and there wasn't an existing managed transaction active.
+     * For example, if the from endpoint is a JMS endpoint, then the
+     * expectation will be that the JMS MessageListener has already started a
+     * transaction and it has set a non-null transaction name. Note that it
+     * is possible to be in a transaction but the tx name is null. */
     private boolean enforceExistanceOfEnteringTransactionName = true;
 
     public ReliableTxConsumerBuilder() {
@@ -201,7 +206,7 @@ public class ReliableTxConsumerBuilder {
                 .onException(Throwable.class).process(new Processor() {
                     @Override
                     public void process(Exchange exchange) throws Exception {
-                        handleException(exchange);
+                        handleException(exchange, errorHandlingMode);
                     }
                 }).handled(true)
                 // end exception handling for everything else
@@ -219,7 +224,7 @@ public class ReliableTxConsumerBuilder {
                 .transacted(transactionPolicyRefName);
     }
 
-    protected void handleException(Exchange exchange) {
+    protected void handleException(Exchange exchange, final ErrorResponseMode errorHandlingMode) {
         if (log.isDebugEnabled()) {
             log.debug("onException handling for Throwable");
         }
@@ -251,7 +256,7 @@ public class ReliableTxConsumerBuilder {
                         "Managed transaction for this exchange has already been marked as rollback-only or has already been rolled back");
             }
             return;
-        } else {
+        } else if (errorHandlingMode != ErrorResponseMode.EXCEPTION_AS_REPLY) {
             if (log.isDebugEnabled()) {
                 log.debug("Marking managed transaction for this exchange as rollback-only");
             }
@@ -265,11 +270,28 @@ public class ReliableTxConsumerBuilder {
                     + route.getEndpoint().getEndpointKey());
         }
 
-        ManagedSpringTransactionImpl managedTx = new ManagedSpringTransactionImpl(getTransactionManager());
-        managedTx.beginTransaction();
+        /* Keep the current managed transaction if there is one already
+         * established. */
+        boolean managedTxCreated = false;
+        ManagedSpringTransactionImpl managedTx = (ManagedSpringTransactionImpl) ManagedSpringTransactionImpl
+                .getCurrentManagedSpringTransaction();
+        if (managedTx == null) {
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "A managed transaction is not current and active or synchronization is not enabled, so establishing a new managed transaction");
+            }
+            managedTx = new ManagedSpringTransactionImpl(getTransactionManager());
+            managedTxCreated = true;
+            managedTx.beginTransaction();
+        } else {
+            if (log.isDebugEnabled()) {
+                log.debug("Keeping the already active managed transaction: name=" + managedTx.getTransactionName());
+            }
+        }
         assertWithException(managedTx.isCurrentAndActive());
 
-        /* Add managed tx as a key to transactedBy list in the unit of work */
+        /* Add managed tx as a key to transactedBy list in the unit of
+         * work */
         exchange.getUnitOfWork().beginTransactedBy(managedTx);
 
         /* The exchange should now be transacted, if it wasn't already. */
@@ -278,7 +300,8 @@ public class ReliableTxConsumerBuilder {
             throw new ReliableTxCamelException("This exchange isn't transacted when it should be.");
         }
 
-        /* There may be multiple routes chained together using this builder. */
+        /* There may be multiple routes chained together using this
+         * builder. */
         Integer builderRouteCount = exchange.getProperty(BUILDER_ROUTE_COUNT_PROPERTY, Integer.class);
         if (builderRouteCount == null) {
             builderRouteCount = 1;
@@ -298,7 +321,7 @@ public class ReliableTxConsumerBuilder {
                 log.debug("Original tx name that was suspended for this exchange: " + originalTxName);
             }
         }
-        if (getEnforceExistanceOfEnteringTransactionName() && originalTxName == null) {
+        if (managedTxCreated && getEnforceExistanceOfEnteringTransactionName() && originalTxName == null) {
             managedTx.markRollbackOnly();
             throw new ReliableTxCamelException(
                     "Upon entering the route, before starting the managed transaction for the route, the original transaction name was null.  Either no transaction was active or there was an active transaction with a null transaction name.  The expectation is there should be an existing transaction with a name upon entering the route.  If this is not the case, set enforceExistanceOfEnteringTransactionName to false.");
@@ -306,6 +329,7 @@ public class ReliableTxConsumerBuilder {
 
         /* this managed transaction belongs to this exchange */
         exchange.setProperty((builderRouteCount - 1) + ":" + MANAGED_TX_PROPERTY_SUFFIX, managedTx);
+        exchange.setProperty((builderRouteCount - 1) + ":" + MANAGED_TX_CREATED_PROPERTY_SUFFIX, managedTxCreated);
     }
 
     protected boolean finishExchangeRoute(Exchange exchange, Route route) throws ReliableTxCamelException {
@@ -322,7 +346,12 @@ public class ReliableTxConsumerBuilder {
         }
         assertWithException(managedTx.getTransactionStatus() != null);
 
-        /* The unit of work should be transacted by this managed transaction. */
+        /* True if a new managed tx was created in startExchangeRoute(). If
+         * false, one was already active upon entering the route. */
+        Boolean managedTxCreated = wasManagedTransactionCreated(exchange, index);
+
+        /* The unit of work should be transacted by this managed
+         * transaction. */
         if (!exchange.getUnitOfWork().isTransactedBy(managedTx)) {
             managedTx.markRollbackOnly();
             throw new ReliableTxCamelException(
@@ -333,6 +362,18 @@ public class ReliableTxConsumerBuilder {
         if (!exchange.isTransacted()) {
             managedTx.markRollbackOnly();
             throw new ReliableTxCamelException("This exchange isn't transacted when it should be.");
+        }
+
+        if (managedTxCreated != null && managedTxCreated == Boolean.FALSE) {
+            /* There's nothing left to do since we didn't create this managed
+             * transaction at the start of the exchange. We only commit or
+             * rollback it if we "own" the transaction within the
+             * exchange. */
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "Didn't create the transaction at the start of the exchange so not yet finalizing the transaction.");
+            }
+            return false;
         }
 
         String originalTxName = managedTx.getOriginalTransactionName();
@@ -392,21 +433,21 @@ public class ReliableTxConsumerBuilder {
         if (getEnforceExistanceOfEnteringTransactionName() && originalTxName == null) {
             throw new ReliableTxCamelException(
                     "The original transaction name was null and enforceExistanceOfEnteringTransactionName is true.");
-        }
-        if (originalTxName != null
-                && !originalTxName.equals(TransactionSynchronizationManager.getCurrentTransactionName())) {
-            String msg = "The managed transaction has been committed or rolled back but the original transaction has not been resumed.  "
-                    + "It's possible that a third transaction was improperly started by code executed by the "
-                    + "route destination.  originalTxName=" + originalTxName + ", currentTxName="
-                    + TransactionSynchronizationManager.getCurrentTransactionName() + ".";
-            throw new ReliableTxCamelException(msg);
-        }
+        } else if (originalTxName != null) {
+            if (!originalTxName.equals(TransactionSynchronizationManager.getCurrentTransactionName())) {
+                String msg = "The managed transaction has been committed or rolled back but the original transaction has not been resumed.  "
+                        + "It's possible that a third transaction was improperly started by code executed by the "
+                        + "route destination.  originalTxName=" + originalTxName + ", currentTxName="
+                        + TransactionSynchronizationManager.getCurrentTransactionName() + ".";
+                throw new ReliableTxCamelException(msg);
+            }
 
-        /* originalTx has been restored. All is well. */
+            /* originalTx has been restored. All is well. */
 
-        assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
-        if (log.isDebugEnabled()) {
-            log.debug("originalTx has been restored.  All should be well with sending the reply.");
+            assertWithException(TransactionSynchronizationManager.isActualTransactionActive());
+            if (log.isDebugEnabled()) {
+                log.debug("originalTx has been restored.  All should be well with sending the reply.");
+            }
         }
 
         return didRollback;
@@ -416,9 +457,10 @@ public class ReliableTxConsumerBuilder {
         Integer index = getIndexForRouteId(exchange, exchange.getUnitOfWork().getRouteContext().getRoute().getId());
         ManagedSpringTransaction managedTx = getManagedSpringTransaction(exchange, index);
         assertWithException(managedTx != null);
-        boolean didRollback = managedTx.isRolledBack() || managedTx.isRollbackOnly() || exchange.isFailed();
+        boolean didRollbackOrGotException = managedTx.isRolledBack() || managedTx.isRollbackOnly() || exchange.isFailed()
+                || exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Throwable.class) != null;
 
-        if (didRollback) {
+        if (didRollbackOrGotException) {
             /* How we respond in a rollback situation depends on the error
              * response mode. */
             Throwable exceptionCaught = exchange.getProperty(Exchange.EXCEPTION_CAUGHT, Throwable.class);
@@ -484,7 +526,15 @@ public class ReliableTxConsumerBuilder {
      *            starts with 0.
      */
     public static ManagedSpringTransaction getManagedSpringTransaction(Exchange exchange, Integer builderIndex) {
-        return (builderIndex != null ? exchange.getProperty(builderIndex + ":" + MANAGED_TX_PROPERTY_SUFFIX, ManagedSpringTransaction.class) : null);
+        return (builderIndex != null
+                ? exchange.getProperty(builderIndex + ":" + MANAGED_TX_PROPERTY_SUFFIX, ManagedSpringTransaction.class)
+                : null);
+    }
+
+    public static Boolean wasManagedTransactionCreated(Exchange exchange, Integer builderIndex) {
+        return (builderIndex != null
+                ? exchange.getProperty(builderIndex + ":" + MANAGED_TX_CREATED_PROPERTY_SUFFIX, Boolean.class)
+                : null);
     }
 
     /**

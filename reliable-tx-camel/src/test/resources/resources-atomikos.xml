@@ -84,8 +84,8 @@
     </bean>
 
     <bean id="CAMEL_PROPAGATION_REQUIRED" class="org.apache.camel.spring.spi.SpringTransactionPolicy">
-        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED"/>
-        <property name="transactionManager" ref="jtaTransactionManager"/>
+        <property name="propagationBehaviorName" value="PROPAGATION_REQUIRED" />
+        <property name="transactionManager" ref="jtaTransactionManager" />
     </bean>
 
     <bean id="redeliveryPolicy" class="org.apache.camel.processor.RedeliveryPolicy">
@@ -182,5 +182,8 @@
     <bean id="testReceiverBean" class="software.reliabletx.camel.TestReceiverBean">
         <property name="jmsTransactionManager" ref="jtaTransactionManager" />
     </bean>
+
+    <bean id="jmsListenerConnectionFactory"
+        class="software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory" />
 
 </beans>

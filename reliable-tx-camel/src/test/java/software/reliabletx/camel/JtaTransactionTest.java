@@ -29,6 +29,8 @@ import org.apache.camel.Route;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.ServiceStatus;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.jms.JmsEndpoint;
+import org.apache.camel.component.jms.MessageListenerContainerFactory;
 import org.apache.camel.impl.DefaultCamelContext;
 import org.apache.camel.impl.DefaultProducerTemplate;
 import org.apache.camel.spring.SpringRouteBuilder;
@@ -38,6 +40,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import software.reliabletx.camel.activemq.QueueStatistics;
+import software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory;
 
 /**
  * Tests reliable transactions for Camel using a JTA transaction manager.
@@ -50,17 +53,27 @@ public class JtaTransactionTest extends ActiveMQTestCase {
     private static final int WAIT_FOR_REPLY_TIMEOUT = 5000; // milliseconds
 
     private static final String testTransactedQueueName = "testTransactedQueue";
+    private static final String testTransactedCLQueueName = "testTransactedCLQueue";
     private static final String testFailingConsumerWithReplyExceptionsTransactedQueueName = "testFailingConsumerWithReplyExceptionsTransactedQueue";
+    private static final String testFailingConsumerWithReplyExceptionsTransactedCLQueueName = "testFailingConsumerWithReplyExceptionsTransactedCLQueue";
     private static final String testFailingConsumerWithExchangeFailuresTransactedQueueName = "testFailingConsumerWithExchangeFailuresTransactedQueue";
+    private static final String testFailingConsumerWithExchangeFailuresTransactedCLQueueName = "testFailingConsumerWithExchangeFailuresTransactedCLQueue";
 
     protected Endpoint testTransactedQueueEndpoint;
+    /* CL -> custom (jms) listener */
+    protected Endpoint testTransactedCLQueueEndpoint;
     protected Endpoint testTransactedQueueEndpointForProducer;
+    protected Endpoint testTransactedCLQueueEndpointForProducer;
 
     protected Endpoint testFailingConsumerWithReplyExceptionsTransactedQueueEndpoint;
+    protected Endpoint testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpoint;
     protected Endpoint testFailingConsumerWithExchangeFailuresTransactedQueueEndpoint;
+    protected Endpoint testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpoint;
 
     protected Endpoint testFailingConsumerWithReplyExceptionsTransactedQueueEndpointForProducer;
+    protected Endpoint testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpointForProducer;
     protected Endpoint testFailingConsumerWithExchangeFailuresTransactedQueueEndpointForProducer;
+    protected Endpoint testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpointForProducer;
 
     protected DefaultCamelContext getCamelContext() {
         return getBean("jtaCamelContext", DefaultCamelContext.class);
@@ -93,6 +106,14 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         return getBean("testReceiverBean", TestReceiverBean.class);
     }
 
+    protected MessageListenerContainerFactory getMessageListenerFactory() {
+        return getBean("jmsListenerConnectionFactory", MessageListenerContainerFactory.class);
+    }
+
+    protected void setListenerConnectionFactory(JmsEndpoint endpoint, MessageListenerContainerFactory factory) {
+        endpoint.getConfiguration().setMessageListenerContainerFactory(factory);
+    }
+
     @Override
     public void setUp() throws Exception {
         /* Start test ActiveMQ embedded broker and initialize Spring. */
@@ -101,29 +122,53 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         /* Print out DLQ messages to the log. Establishing the DLQs ahead of
          * time also initializes statistics numbers to 0 for these DLQs. */
         getEmbeddedBroker().setUpDlqConsumer("DLQ." + testTransactedQueueName);
+        getEmbeddedBroker().setUpDlqConsumer("DLQ." + testTransactedCLQueueName);
         getEmbeddedBroker().setUpDlqConsumer("DLQ." + testFailingConsumerWithReplyExceptionsTransactedQueueName);
+        getEmbeddedBroker().setUpDlqConsumer("DLQ." + testFailingConsumerWithReplyExceptionsTransactedCLQueueName);
         getEmbeddedBroker().setUpDlqConsumer("DLQ." + testFailingConsumerWithExchangeFailuresTransactedQueueName);
+        getEmbeddedBroker().setUpDlqConsumer("DLQ." + testFailingConsumerWithExchangeFailuresTransactedCLQueueName);
 
-        /* We don't add transacted=true because the consumer is transacted
-         * but the producer can't be since it's request-reply. We make the
-         * consumer transactional by using transacted() for the route. */
         this.testTransactedQueueEndpoint = resolveMandatoryEndpoint("activemq:queue:" + testTransactedQueueName
                 + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT + "&transacted=true");
+        this.testTransactedCLQueueEndpoint = resolveMandatoryEndpoint(
+                "activemq:queue:" + testTransactedCLQueueName + "?includeSentJMSMessageID=true&requestTimeout="
+                        + WAIT_FOR_REPLY_TIMEOUT + "&transacted=true&consumerType=Custom");
+        setListenerConnectionFactory((JmsEndpoint) testTransactedCLQueueEndpoint, getMessageListenerFactory());
         this.testTransactedQueueEndpointForProducer = resolveMandatoryEndpointForProducer("activemq:queue:"
                 + testTransactedQueueName + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT);
+        this.testTransactedCLQueueEndpointForProducer = resolveMandatoryEndpointForProducer("activemq:queue:"
+                + testTransactedCLQueueName + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT);
 
         this.testFailingConsumerWithReplyExceptionsTransactedQueueEndpoint = resolveMandatoryEndpoint("activemq:queue:"
                 + testFailingConsumerWithReplyExceptionsTransactedQueueName + "?includeSentJMSMessageID=true"
                 + "&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT + "&transacted=true");
+        this.testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpoint = resolveMandatoryEndpoint(
+                "activemq:queue:" + testFailingConsumerWithReplyExceptionsTransactedCLQueueName
+                        + "?includeSentJMSMessageID=true" + "&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT
+                        + "&transacted=true&consumerType=Custom");
+        setListenerConnectionFactory((JmsEndpoint) testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpoint,
+                getMessageListenerFactory());
         this.testFailingConsumerWithReplyExceptionsTransactedQueueEndpointForProducer = resolveMandatoryEndpointForProducer(
                 "activemq:queue:" + testFailingConsumerWithReplyExceptionsTransactedQueueName
+                        + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT);
+        this.testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpointForProducer = resolveMandatoryEndpointForProducer(
+                "activemq:queue:" + testFailingConsumerWithReplyExceptionsTransactedCLQueueName
                         + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT);
 
         this.testFailingConsumerWithExchangeFailuresTransactedQueueEndpoint = resolveMandatoryEndpoint("activemq:queue:"
                 + testFailingConsumerWithExchangeFailuresTransactedQueueName + "?includeSentJMSMessageID=true"
                 + "&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT + "&transacted=true");
+        this.testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpoint = resolveMandatoryEndpoint(
+                "activemq:queue:" + testFailingConsumerWithExchangeFailuresTransactedCLQueueName
+                        + "?includeSentJMSMessageID=true" + "&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT
+                        + "&transacted=true&consumerType=Custom");
+        setListenerConnectionFactory((JmsEndpoint) testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpoint,
+                getMessageListenerFactory());
         this.testFailingConsumerWithExchangeFailuresTransactedQueueEndpointForProducer = resolveMandatoryEndpointForProducer(
                 "activemq:queue:" + testFailingConsumerWithExchangeFailuresTransactedQueueName
+                        + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT);
+        this.testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpointForProducer = resolveMandatoryEndpointForProducer(
+                "activemq:queue:" + testFailingConsumerWithExchangeFailuresTransactedCLQueueName
                         + "?includeSentJMSMessageID=true&requestTimeout=" + WAIT_FOR_REPLY_TIMEOUT);
 
         /* Add the RouteBuilder which has our Camel routes. */
@@ -174,9 +219,9 @@ public class JtaTransactionTest extends ActiveMQTestCase {
             @Override
             public void configure() throws Exception {
                 // consumer successfully consumes
-                getConsumerBuilder()
-                        .from(testTransactedQueueEndpoint,
-                                ErrorResponseMode.EXCEPTION_AS_REPLY, this)
+                getConsumerBuilder().from(testTransactedQueueEndpoint, ErrorResponseMode.EXCEPTION_AS_REPLY, this)
+                        .bean(getTestReceiverBean(), "receiveMessage");
+                getConsumerBuilder().from(testTransactedCLQueueEndpoint, ErrorResponseMode.EXCEPTION_AS_REPLY, this)
                         .bean(getTestReceiverBean(), "receiveMessage");
 
                 // consumer throws exception where the exception is put into
@@ -185,11 +230,19 @@ public class JtaTransactionTest extends ActiveMQTestCase {
                         .from(testFailingConsumerWithReplyExceptionsTransactedQueueEndpoint,
                                 ErrorResponseMode.EXCEPTION_AS_REPLY, this)
                         .bean(getTestReceiverBean(), "receiveMessageThrowException");
+                getConsumerBuilder()
+                        .from(testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpoint,
+                                ErrorResponseMode.EXCEPTION_AS_REPLY, this)
+                        .bean(getTestReceiverBean(), "receiveMessageThrowException");
 
                 // consumer throws exception where the exchange is failed and
                 // there is no reply
                 getConsumerBuilder()
                         .from(testFailingConsumerWithExchangeFailuresTransactedQueueEndpoint,
+                                ErrorResponseMode.EXCHANGE_FAILURE_NO_REPLY, this)
+                        .bean(getTestReceiverBean(), "receiveMessageThrowException");
+                getConsumerBuilder()
+                        .from(testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpoint,
                                 ErrorResponseMode.EXCHANGE_FAILURE_NO_REPLY, this)
                         .bean(getTestReceiverBean(), "receiveMessageThrowException");
             }
@@ -208,6 +261,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
 
                 // successful send
                 from("direct:transactedTest").to(testTransactedQueueEndpointForProducer);
+                from("direct:transactedCLTest").to(testTransactedCLQueueEndpointForProducer);
 
                 // producer throws an exception before message sent
                 from("direct:transactedPreSentFailureTest").onException(Exception.class).maximumRedeliveries(0).end()
@@ -312,6 +366,28 @@ public class JtaTransactionTest extends ActiveMQTestCase {
     }
 
     @Test
+    public void testSuccessfulCLConsumption() throws Exception {
+        try {
+            // we use send() so we can get at the response headers
+            Exchange responseExchange = getProducerTemplate().send("direct:transactedCLTest", ExchangePattern.InOut,
+                    new Processor() {
+                        @Override
+                        public void process(Exchange exchange) throws Exception {
+                            exchange.getIn().setBody("hello world");
+                        }
+                    });
+            String response = responseExchange.getOut().getBody(String.class);
+            log.debug("response = " + response);
+            assertTrue(getTestReceiverBean().fifo.size() > 0);
+            assertEquals("hello world", getTestReceiverBean().fifo.pop());
+            assertEquals("Camel acknowledged", response);
+        } finally {
+            log.debug("for testSuccessfulCLConsumption, STATS: " + getQueueStatistics(testTransactedCLQueueName));
+        }
+        assertStatsSuccessfulConsumption(testTransactedCLQueueName);
+    }
+
+    @Test
     public void testPreSentProducerFailure() throws Exception {
         try {
             getProducerTemplate().requestBody("direct:transactedPreSentFailureTest", "hello world pre");
@@ -328,7 +404,8 @@ public class JtaTransactionTest extends ActiveMQTestCase {
             getProducerTemplate().requestBody("direct:transactedPostSentFailureTest", "hello world post");
         } catch (CamelExecutionException e) {
             /* Since our processor threw an exception AFTER we already
-             * consumed from the queue, we expect the FIFO to have an entry. */
+             * consumed from the queue, we expect the FIFO to have an
+             * entry. */
             assertTrue(getTestReceiverBean().fifo.size() > 0);
             assertEquals("hello world post", getTestReceiverBean().fifo.pop());
             QueueStatistics stats = getQueueStatistics(testTransactedQueueName);
@@ -363,6 +440,27 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         /* Since using EXCEPTION_AS_REPLY mode for this test, there will be
          * no DLQ message. */
         assertStatsSuccessfulConsumption(testFailingConsumerWithReplyExceptionsTransactedQueueName);
+    }
+
+    @Test
+    public void testCLConsumerFailureWithExceptionResponse() throws Exception {
+        Object response = null;
+        try {
+            response = getProducerTemplate().requestBody(
+                    testFailingConsumerWithReplyExceptionsTransactedCLQueueEndpointForProducer,
+                    "hello world, consumer failure");
+            log.debug("response = " + response);
+        } finally {
+            log.debug("for testConsumerFailureWithExceptionResponse (CL), STATS: "
+                    + getQueueStatistics(testFailingConsumerWithReplyExceptionsTransactedCLQueueName));
+        }
+        assertEquals(0, getTestReceiverBean().fifo.size());
+        /* Confirm that we have received an error reply. */
+        assertTrue(response instanceof Exception);
+        assertEquals(((Exception) response).getMessage(), "purposely thrown consumer exception in TestReceiverBean");
+        /* Since using EXCEPTION_AS_REPLY mode for this test, there will be
+         * no DLQ message. */
+        assertStatsSuccessfulConsumption(testFailingConsumerWithReplyExceptionsTransactedCLQueueName);
     }
 
     /**
@@ -406,6 +504,49 @@ public class JtaTransactionTest extends ActiveMQTestCase {
                 log.error("Timeout waiting for failed message to be put onto the DLQ");
             }
             assertStatsFailedExchange(testFailingConsumerWithExchangeFailuresTransactedQueueName);
+
+            return;
+        }
+        fail("RuntimeCamelException should have been thrown");
+    }
+
+    @Test
+    public void testCLConsumerFailureWithExchangeFailure() throws Exception {
+        try {
+            /* we expect this to timeout after WAIT_FOR_REPLY_TIMEOUT
+             * milliseconds */
+            getProducerTemplate().requestBody(
+                    testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpointForProducer,
+                    "hello world, consumer failure");
+        } catch (RuntimeCamelException e) {
+            /* This should be a Camel timeout exception. We won't ever
+             * receive a reply. */
+            assert (e.getCause() instanceof ExchangeTimedOutException);
+
+            assertEquals(0, getTestReceiverBean().fifo.size());
+
+            /* Confirm that the broker moved the message to the DLQ since the
+             * exchange failed. AMQ broker may take a little bit of time to
+             * move it to DLQ.
+             * 
+             * Note that we're checking for the dequeued count because of the
+             * DLQ consumer we set up using setUpDlqConsumer() in setUp(). If
+             * no DLQ consumer is started, then we'd have to check for the
+             * enqueued count instead. */
+            QueueStatistics stats = null;
+            for (int i = 0; i < 40; i++) {
+                stats = getQueueStatistics(testFailingConsumerWithExchangeFailuresTransactedCLQueueName);
+                log.debug("for testConsumerFailureWithExchangeFailure (CL), STATS: " + stats);
+                if (stats.dlqMessagesDequeued > 0) {
+                    break;
+                } else {
+                    Thread.sleep(500);
+                }
+            }
+            if (stats.dlqMessagesDequeued <= 0) {
+                log.error("Timeout waiting for failed message to be put onto the DLQ");
+            }
+            assertStatsFailedExchange(testFailingConsumerWithExchangeFailuresTransactedCLQueueName);
 
             return;
         }

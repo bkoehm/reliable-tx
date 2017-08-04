@@ -1,2 +1,5 @@
 rootProject.name = 'reliable-tx'
-include 'reliable-tx-spring', 'reliable-tx-camel', 'reliable-tx-spring-jdbc'
+include 'reliable-tx-spring',
+    'reliable-tx-camel',
+    'reliable-tx-camel-jms',
+    'reliable-tx-spring-jdbc'

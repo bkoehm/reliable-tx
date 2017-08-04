@@ -73,29 +73,20 @@ dependencies {
 
     testCompile "junit:junit:$junitVersion"
 
+    // Spring
+    compile "org.springframework:spring-core:$springVersion"
+    compile "org.springframework:spring-tx:$springVersion"
+    compile "org.springframework:spring-jms:$springVersion"
+
     // Camel
     compile "org.apache.camel:camel-core:$camelVersion"
-    compile "org.apache.camel:camel-spring:$camelVersion"
-    testCompile "org.apache.camel:camel-jms:$camelVersion"
+    compile "org.apache.camel:camel-jms:$camelVersion"
 
-    // ActiveMQ
-    testCompile "org.apache.activemq:activemq-broker:$amqVersion"
-    testCompile "org.apache.activemq:activemq-camel:$amqVersion"
+    compileOnly "org.apache.geronimo.specs:geronimo-jms_1.1_spec:1.1.1"
 
-    // Spring JMS (primarily for the JmsTransactionManager)
-    testCompile "org.springframework:spring-jms:$springVersion"
-
-    // JTA
-    testCompile "com.atomikos:transactions-jta:$atomikosVersion"
-    testCompile "com.atomikos:transactions-jms:$atomikosVersion"
-    testCompile 'javax.transaction:jta:1.1'
-
-    // reliable-tx
+    // reliable-tx-spring
     compile project(":reliable-tx-spring")
-    testCompile project(":reliable-tx-camel-jms")
 }
-
-test { maxParallelForks = 1 }
 
 jar { from "../LICENSE" }
 
