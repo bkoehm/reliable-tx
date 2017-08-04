@@ -550,7 +550,7 @@ public class ReliableTxConsumerBuilder {
      */
     public static ManagedSpringTransaction getInnermostManagedSpringTransaction(Exchange exchange) {
         Integer count = getConsumerBuilderCount(exchange);
-        return (count != null ? getManagedSpringTransaction(exchange, count - 1) : null);
+        return (count != null ? getManagedSpringTransaction(exchange, (count > 0 ? count - 1 : 0)) : null);
     }
 
     protected static Integer getIndexForRouteId(Exchange exchange, String routeId) {
