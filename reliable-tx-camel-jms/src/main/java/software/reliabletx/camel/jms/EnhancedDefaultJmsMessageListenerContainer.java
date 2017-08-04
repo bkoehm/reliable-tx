@@ -176,6 +176,6 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
     }
 
     protected int nextRandom() {
-        return random.nextInt();
+        return random.nextInt(Integer.MAX_VALUE);
     }
 }
