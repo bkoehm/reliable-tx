@@ -59,6 +59,12 @@
         <property name="brokerURL"
             value="vm://localhost?broker.persistent=false&amp;broker.useJmx=false" />
         <property name="redeliveryPolicyMap" ref="amqRedeliveryPolicyMap" />
+        <property name="trustedPackages">
+            <list>
+                <value>java.lang</value>
+                <value>java.util</value>
+            </list>
+        </property>
     </bean>
 
     <bean id="jmsConnectionFactoryForAtomikos"
@@ -66,6 +72,12 @@
         <property name="brokerURL"
             value="vm://localhost?broker.persistent=false&amp;broker.useJmx=false" />
         <property name="redeliveryPolicyMap" ref="amqRedeliveryPolicyMap" />
+        <property name="trustedPackages">
+            <list>
+                <value>java.lang</value>
+                <value>java.util</value>
+            </list>
+        </property>
     </bean>
     <bean id="atomikosJmsConnectionFactory" class="com.atomikos.jms.AtomikosConnectionFactoryBean"
         init-method="init" destroy-method="close">
