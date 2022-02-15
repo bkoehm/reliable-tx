@@ -110,13 +110,13 @@ This may differ from normal Camel operation, where without
 
 If you're consuming transactionally off a JMS source point (e.g., a queue or
 topic), you probably want to use
-`software.reliabletx.camel.jms.EnhancedDefaultJmsMessageListenerContainer`
+`EnhancedDefaultJmsMessageListenerContainer`
 so a reliabletx managed transaction is started right at the beginning.
 
 To get Camel to use this enhanced message listener, create a bean:
 ```
 <bean id="jmsListenerContainerFactory"
-        class="software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory" />
+        class="EnhancedDefaultMessageListenerContainerFactory" />
 ```
 
 Then however you create your JmsEndpoint, adjust the endpoint configuration

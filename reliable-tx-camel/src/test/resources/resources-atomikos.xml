@@ -185,17 +185,17 @@
     </bean>
 
     <!-- ReliableTxConsumerBuilder -->
-    <bean id="consumerBuilder" class="software.reliabletx.camel.ReliableTxConsumerBuilder">
+    <bean id="consumerBuilder" class="io.github.bkoehm.reliabletx.camel.ReliableTxConsumerBuilder">
         <property name="transactionPolicyRefName" value="CAMEL_PROPAGATION_REQUIRED" />
         <property name="transactionManager" ref="jtaTransactionManager" />
     </bean>
 
     <!-- bean used as a Camel destination in the tests -->
-    <bean id="testReceiverBean" class="software.reliabletx.camel.TestReceiverBean">
+    <bean id="testReceiverBean" class="io.github.bkoehm.reliabletx.camel.TestReceiverBean">
         <property name="jmsTransactionManager" ref="jtaTransactionManager" />
     </bean>
 
     <bean id="jmsListenerContainerFactory"
-        class="software.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory" />
+        class="io.github.bkoehm.reliabletx.camel.jms.EnhancedDefaultMessageListenerContainerFactory" />
 
 </beans>
