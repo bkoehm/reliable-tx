@@ -15,37 +15,17 @@
  * under the License.
  */
 
-apply plugin: 'java'
-apply plugin: 'maven-publish'
-apply plugin: 'com.jfrog.bintray'
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+}
 
 // variables in gradle.properties
 group = projectGroup
 version = projectVersion
 sourceCompatibility = jdkCompatibilityVersion
 targetCompatibility = jdkCompatibilityVersion
-
-buildscript {
-    repositories {
-        mavenLocal()
-        // If using a Maven proxy, put the property settings in
-        // ~/.gradle/gradle.properties for default_proxy_url,
-        // default_proxy_username and default_proxy_password.
-        if (project.hasProperty("default_proxy_url")) {
-            maven {
-                url project.property("default_proxy_url")
-                credentials {
-                    username project.property("default_proxy_username")
-                    password project.property("default_proxy_password")
-                }
-            }
-        }
-        jcenter()
-        mavenCentral()
-    }
-
-    dependencies { classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:$bintrayGradlePluginVersion" }
-}
 
 repositories {
     mavenLocal()
@@ -61,38 +41,37 @@ repositories {
             }
         }
     }
-    jcenter()
     mavenCentral()
 }
 
 dependencies {
     // Versions are set in gradle.properties
 
-    compile "org.slf4j:slf4j-api:$slf4jVersion"
-    testCompile "org.slf4j:slf4j-log4j12:$slf4jVersion"
+    implementation "org.slf4j:slf4j-api:$slf4jVersion"
+    testImplementation "org.slf4j:slf4j-log4j12:$slf4jVersion"
 
-    testCompile "junit:junit:$junitVersion"
+    testImplementation "junit:junit:$junitVersion"
 
     // Camel
-    compile "org.apache.camel:camel-core:$camelVersion"
-    compile "org.apache.camel:camel-spring:$camelVersion"
-    testCompile "org.apache.camel:camel-jms:$camelVersion"
+    implementation "org.apache.camel:camel-core:$camelVersion"
+    implementation "org.apache.camel:camel-spring:$camelVersion"
+    testImplementation "org.apache.camel:camel-jms:$camelVersion"
 
     // ActiveMQ
-    testCompile "org.apache.activemq:activemq-broker:$amqVersion"
-    testCompile "org.apache.activemq:activemq-camel:$amqVersion"
+    testImplementation "org.apache.activemq:activemq-broker:$amqVersion"
+    testImplementation "org.apache.activemq:activemq-camel:$amqVersion"
 
     // Spring JMS (primarily for the JmsTransactionManager)
-    testCompile "org.springframework:spring-jms:$springVersion"
+    testImplementation "org.springframework:spring-jms:$springVersion"
 
     // JTA
-    testCompile "com.atomikos:transactions-jta:$atomikosVersion"
-    testCompile "com.atomikos:transactions-jms:$atomikosVersion"
-    testCompile 'javax.transaction:jta:1.1'
+    testImplementation "com.atomikos:transactions-jta:$atomikosVersion"
+    testImplementation "com.atomikos:transactions-jms:$atomikosVersion"
+    testImplementation 'javax.transaction:jta:1.1'
 
     // reliable-tx
-    compile project(":reliable-tx-spring")
-    testCompile project(":reliable-tx-camel-jms")
+    implementation project(":reliable-tx-spring")
+    testImplementation project(":reliable-tx-camel-jms")
 }
 
 test { maxParallelForks = 1 }
@@ -102,19 +81,30 @@ jar { from "../LICENSE" }
 task sourceJar(type: Jar) {
     from sourceSets.main.allJava
     from "../LICENSE"
+    archiveClassifier = "sources"
 }
 
 task javadocJar (type: Jar, dependsOn: javadoc) {
     from javadoc.destinationDir
     from "../LICENSE"
+    archiveClassifier = "javadoc"
+}
+
+artifacts {
+    archives jar, javadocJar, sourceJar
+}
+
+signing {
+    useGpgCmd()
+    sign publishing.publications
 }
 
 publishing {
     publications {
         mavenJava(MavenPublication) {
             from components.java
-            artifact sourceJar { classifier "sources" }
-            artifact javadocJar { classifier "javadoc" }
+            artifact sourceJar
+            artifact javadocJar
             pom.withXml {
                 asNode().children().last() + {
                     resolveStrategy = Closure.DELEGATE_FIRST
@@ -125,6 +115,7 @@ publishing {
                         url githubWebUrl
                         connection "scm:git:${githubWebUrl}.git"
                         developerConnection "scm:git:${githubWebUrl}.git"
+                        tag "v${project.version}"
                     }
                     licenses {
                         license {
@@ -133,36 +124,26 @@ publishing {
                             distribution 'repo'
                         }
                     }
+                    issueManagement {
+                        url "${githubWebUrl}/issues"
+                    }
+                    developers {
+                        developer {
+                            id 'bkoehm'
+                            name 'Brian Koehmstedt'
+                        }
+                    }
                 }
             }
         }
     }
-}
-
-if (project.hasProperty('default_bintray_user')) {
-    // deploy with: gradle bintrayUpload
-    bintray {
-        // put in ~/.gradle/gradle.properties
-        user = project.property('default_bintray_user')
-        key = project.property('default_bintray_api_key')
-        publications = ['mavenJava']
-
-        //dryRun = true
-
-        pkg {
-            repo = 'maven'
-            name = projectName
-            desc = projectDescription
-            licenses = ['Apache-2.0']
-            websiteUrl = githubWebUrl
-            vcsUrl = "${githubWebUrl}.git"
-            issueTrackerUrl = "${githubWebUrl}/issues"
-            githubRepo = githubRepo
-            version {
-                name = project.version
-                desc = "${projectName} v${project.version} - ${projectDescription}"
-                released = new Date()
-                vcsTag = "v${project.version}"
+    repositories {
+        maven {
+            name = "OSSRH"
+            url project.property("default_ossrh_url")
+            credentials {
+                username project.property("default_ossrh_username")
+                password project.property("default_ossrh_password")
             }
         }
     }
