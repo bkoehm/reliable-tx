@@ -53,7 +53,7 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
 
     // Embedded HSQLDB for testing
-    testImplementation group: 'org.hsqldb', name: 'hsqldb', version: '2.3.4'
+    testImplementation group: 'org.hsqldb', name: 'hsqldb', version: '2.6.1'
     
     // Spring
     implementation "org.springframework:spring-core:$springVersion"

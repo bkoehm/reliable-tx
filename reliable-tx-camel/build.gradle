@@ -52,6 +52,8 @@ dependencies {
 
     testImplementation "junit:junit:$junitVersion"
 
+    runtimeOnly 'javax.xml.bind:jaxb-api:2.4.0-b180830.0359'
+
     // Camel
     implementation "org.apache.camel:camel-core:$camelVersion"
     implementation "org.apache.camel:camel-spring:$camelVersion"
