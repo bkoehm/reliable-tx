@@ -50,7 +50,8 @@ dependencies {
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
     testImplementation "org.slf4j:slf4j-log4j12:$slf4jVersion"
 
-    testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
+    testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
 
     runtimeOnly 'javax.xml.bind:jaxb-api:2.4.0-b180830.0359'
 
@@ -61,7 +62,7 @@ dependencies {
 
     // ActiveMQ
     testImplementation "org.apache.activemq:activemq-broker:$amqVersion"
-    testImplementation "org.apache.activemq:activemq-camel:$amqVersion"
+    testImplementation "org.apache.camel:camel-activemq:$camelVersion"
 
     // Spring JMS (primarily for the JmsTransactionManager)
     testImplementation "org.springframework:spring-jms:$springVersion"
@@ -76,7 +77,13 @@ dependencies {
     testImplementation project(":reliable-tx-camel-jms")
 }
 
-test { maxParallelForks = 1 }
+test {
+    maxParallelForks = 1
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
 
 jar { from "../LICENSE" }
 

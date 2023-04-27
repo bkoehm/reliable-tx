@@ -16,18 +16,22 @@
  */
 package io.github.bkoehm.reliabletx.spring.jdbc;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-
 import io.github.bkoehm.reliabletx.spring.synchronization.tracking.CrossTransactionActionRecorder;
 import io.github.bkoehm.reliabletx.spring.synchronization.tracking.TrackingTransactionSynchronization;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Brian Koehmstedt
@@ -81,7 +85,7 @@ public class SpringBehaviorTests extends SpringTestCase {
      * I haven't seen obvious documentation on what Spring's @Transactional
      * is supposed to do when checked exceptions are thrown that aren't in
      * the annotation's rollbackFor parameter.
-     * 
+     *
      * <p>
      * This test confirms that Spring will perform a commit on checked
      * exceptions that aren't listed in rollbackFor.

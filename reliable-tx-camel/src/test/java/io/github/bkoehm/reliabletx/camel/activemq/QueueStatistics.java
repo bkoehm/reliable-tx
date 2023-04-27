@@ -16,16 +16,16 @@
  */
 package io.github.bkoehm.reliabletx.camel.activemq;
 
-import java.util.Set;
-
 import org.apache.activemq.broker.region.Destination;
 import org.apache.activemq.broker.region.DestinationStatistics;
 import org.apache.activemq.broker.region.Queue;
 
+import java.util.Set;
+
 /**
  * Report statistics for a queue and its corresponding DLQ. Used for testing
  * purposes.
- * 
+ *
  * @author Brian Koehmstedt
  */
 public class QueueStatistics {
@@ -68,7 +68,7 @@ public class QueueStatistics {
 
     /**
      * @return Pending message count for the queue. Returns -1 when queue
-     *         does not exist.
+     * does not exist.
      */
     public static long getPendingMessageCount(Queue queue) {
         return (queue != null ? queue.getPendingMessageCount() : -1);

@@ -16,21 +16,24 @@
  */
 package io.github.bkoehm.reliabletx.spring.jdbc;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
 import io.github.bkoehm.reliabletx.spring.ManagedThrowableTransactionTemplateImpl;
 import io.github.bkoehm.reliabletx.spring.ManagedTransactionTemplateImpl;
 import io.github.bkoehm.reliabletx.spring.ThrowableTransactionCallback;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.interceptor.RollbackRuleAttribute;
 import org.springframework.transaction.interceptor.RuleBasedTransactionAttribute;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Brian Koehmstedt

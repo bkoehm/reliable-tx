@@ -18,6 +18,8 @@ package io.github.bkoehm.reliabletx.camel;
 
 import io.github.bkoehm.reliabletx.camel.activemq.TestEmbeddedBroker;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 /**
  * @author Brian Koehmstedt
  */

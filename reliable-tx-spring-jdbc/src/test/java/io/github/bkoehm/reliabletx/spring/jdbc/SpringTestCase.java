@@ -16,6 +16,8 @@
  */
 package io.github.bkoehm.reliabletx.spring.jdbc;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -23,12 +25,15 @@ import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * @author Brian Koehmstedt
  */
-public abstract class SpringTestCase extends TestCase {
+public abstract class SpringTestCase {
     private ClassPathXmlApplicationContext springContext;
     protected SimpleDriverDataSource dataSource;
     protected DataSourceTransactionManager transactionManager;
@@ -60,7 +65,7 @@ public abstract class SpringTestCase extends TestCase {
         return springContext.getBean(name, requiredType);
     }
 
-    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         setUpSpring("resources.xml");
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -81,7 +86,7 @@ public abstract class SpringTestCase extends TestCase {
         testBean.init();
     }
 
-    @Override
+    @AfterEach
     public void tearDown() throws Exception {
         testBean.cleanUp();
         stopSpringContext();

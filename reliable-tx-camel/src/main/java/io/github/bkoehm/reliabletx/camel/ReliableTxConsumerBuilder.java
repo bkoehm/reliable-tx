@@ -24,11 +24,11 @@ import io.github.bkoehm.reliabletx.spring.ManagedSpringTransaction;
 import io.github.bkoehm.reliabletx.spring.ManagedSpringTransactionImpl;
 import org.apache.camel.CamelException;
 import org.apache.camel.Endpoint;
+import org.apache.camel.ErrorHandlerFactory;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.Route;
 import org.apache.camel.RuntimeCamelException;
-import org.apache.camel.builder.ErrorHandlerBuilder;
 import org.apache.camel.model.ProcessorDefinition;
 import org.apache.camel.spring.SpringRouteBuilder;
 import org.apache.camel.spring.spi.SpringTransactionPolicy;
@@ -83,7 +83,7 @@ public class ReliableTxConsumerBuilder {
      * existing managed tx */
     public static final String MANAGED_TX_CREATED_PROPERTY_SUFFIX = "managedTxCreated";
     private String transactionPolicyRefName;
-    private ErrorHandlerBuilder errorHandler;
+    private ErrorHandlerFactory errorHandler;
     protected PlatformTransactionManager transactionManager;
     private boolean checkConfiguration = true;
     /* Defaults to true and if true the camel processor will throw an
@@ -98,7 +98,7 @@ public class ReliableTxConsumerBuilder {
     public ReliableTxConsumerBuilder() {
     }
 
-    public ReliableTxConsumerBuilder(String transactionPolicyRefName, ErrorHandlerBuilder errorHandler) {
+    public ReliableTxConsumerBuilder(String transactionPolicyRefName, ErrorHandlerFactory errorHandler) {
         this.transactionPolicyRefName = transactionPolicyRefName;
         this.errorHandler = errorHandler;
     }
@@ -111,11 +111,11 @@ public class ReliableTxConsumerBuilder {
         this.transactionPolicyRefName = transactionPolicyRefName;
     }
 
-    public ErrorHandlerBuilder getErrorHandler() {
+    public ErrorHandlerFactory getErrorHandler() {
         return errorHandler;
     }
 
-    public void setErrorHandler(ErrorHandlerBuilder errorHandler) {
+    public void setErrorHandler(ErrorHandlerFactory errorHandler) {
         this.errorHandler = errorHandler;
     }
 
@@ -244,7 +244,7 @@ public class ReliableTxConsumerBuilder {
                     + " exchange parameter");
         }
 
-        Integer index = getIndexForRouteId(exchange, exchange.getUnitOfWork().getRouteContext().getRoute().getId());
+        Integer index = getIndexForRouteId(exchange, exchange.getUnitOfWork().getRoute().getId());
         ManagedSpringTransaction managedTx = getManagedSpringTransaction(exchange, index);
         assertWithException(managedTx != null);
         assertWithException(managedTx.getTransactionStatus() != null);
@@ -453,7 +453,7 @@ public class ReliableTxConsumerBuilder {
     }
 
     protected void handleOnCompletion(Exchange exchange, final ErrorResponseMode errorHandlingMode) {
-        Integer index = getIndexForRouteId(exchange, exchange.getUnitOfWork().getRouteContext().getRoute().getId());
+        Integer index = getIndexForRouteId(exchange, exchange.getUnitOfWork().getRoute().getId());
         ManagedSpringTransaction managedTx = getManagedSpringTransaction(exchange, index);
         assertWithException(managedTx != null);
         boolean didRollbackOrGotException = managedTx.isRolledBack() || managedTx.isRollbackOnly() || exchange.isFailed()

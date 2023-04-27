@@ -16,8 +16,6 @@
  */
 package io.github.bkoehm.reliabletx.camel;
 
-import java.util.List;
-
 import io.github.bkoehm.reliabletx.camel.activemq.QueueStatistics;
 import org.apache.camel.CamelContext;
 import org.apache.camel.CamelExecutionException;
@@ -33,16 +31,25 @@ import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jms.JmsEndpoint;
 import org.apache.camel.component.jms.MessageListenerContainerFactory;
 import org.apache.camel.impl.DefaultCamelContext;
-import org.apache.camel.impl.DefaultProducerTemplate;
+import org.apache.camel.impl.engine.DefaultProducerTemplate;
 import org.apache.camel.spring.SpringRouteBuilder;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 /**
  * Tests reliable transactions for Camel using a JTA transaction manager.
- * 
+ *
  * @author Brian Koehmstedt
  */
 public class JtaTransactionTest extends ActiveMQTestCase {
@@ -112,7 +119,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         endpoint.getConfiguration().setMessageListenerContainerFactory(factory);
     }
 
-    @Override
+    @BeforeEach
     public void setUp() throws Exception {
         /* Start test ActiveMQ embedded broker and initialize Spring. */
         setUpActiveMQ("resources-atomikos.xml");
@@ -184,7 +191,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         waitForRoutesToStart(getProducerCamelContext(), getProducerCamelContext().getRoutes());
     }
 
-    @Override
+    @AfterEach
     public void tearDown() throws Exception {
         stopSpringContext();
         log.debug("Stopping broker");
@@ -300,7 +307,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         assert route.getId() != null;
         int totalMillis = 0;
         for (totalMillis = 0; totalMillis < 5000; totalMillis += 100) {
-            ServiceStatus status = context.getRouteStatus(route.getId());
+            ServiceStatus status = context.getRouteController().getRouteStatus(route.getId());
             assertNotNull(status);
             if (!status.isStartable() || status.isStarted()) {
                 break;
@@ -308,7 +315,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
-                if (!context.getRouteStatus(route.getId()).isStarted()) {
+                if (!context.getRouteController().getRouteStatus(route.getId()).isStarted()) {
                     throw new RuntimeException("Thread interrupted while waiting for route " + route.getId()
                             + " to start.  After interruption, it has still not been started.");
                 }
@@ -317,7 +324,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
         }
         log.debug("Took " + totalMillis + "ms for route " + route.getId() + " to start.");
 
-        if (!context.getRouteStatus(route.getId()).isStarted()) {
+        if (!context.getRouteController().getRouteStatus(route.getId()).isStarted()) {
             throw new RuntimeException("Timeout while waiting for route " + route.getId() + " to start");
         }
     }
@@ -483,7 +490,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
             /* Confirm that the broker moved the message to the DLQ since the
              * exchange failed. AMQ broker may take a little bit of time to
              * move it to DLQ.
-             * 
+             *
              * Note that we're checking for the dequeued count because of the
              * DLQ consumer we set up using setUpDlqConsumer() in setUp(). If
              * no DLQ consumer is started, then we'd have to check for the
@@ -526,7 +533,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
             /* Confirm that the broker moved the message to the DLQ since the
              * exchange failed. AMQ broker may take a little bit of time to
              * move it to DLQ.
-             * 
+             *
              * Note that we're checking for the dequeued count because of the
              * DLQ consumer we set up using setUpDlqConsumer() in setUp(). If
              * no DLQ consumer is started, then we'd have to check for the

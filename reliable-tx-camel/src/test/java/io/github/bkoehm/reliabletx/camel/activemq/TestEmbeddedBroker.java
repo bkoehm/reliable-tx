@@ -16,19 +16,6 @@
  */
 package io.github.bkoehm.reliabletx.camel.activemq;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
-
-import javax.jms.Connection;
-import javax.jms.Destination;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageListener;
-import javax.jms.Session;
-import javax.jms.TextMessage;
-
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.RedeliveryPolicy;
 import org.apache.activemq.broker.BrokerService;
@@ -40,9 +27,21 @@ import org.apache.activemq.broker.util.RedeliveryPlugin;
 import org.apache.activemq.command.ActiveMQQueue;
 import org.apache.log4j.Logger;
 
+import javax.jms.Connection;
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageListener;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
 /**
  * An embedded ActiveMQ broker for testing purposes.
- * 
+ *
  * @author Brian Koehmstedt
  */
 public class TestEmbeddedBroker {
@@ -127,9 +126,7 @@ public class TestEmbeddedBroker {
     /**
      * Get a Destination object for a queue or topic.
      *
-     * @param name
-     *            Queue or topic name.
-     * 
+     * @param name Queue or topic name.
      * @throws Exception If there is a problem retrieving the Destination object.
      */
     public Set<org.apache.activemq.broker.region.Destination> getDestinationsByQueueName(String name) throws Exception {
@@ -150,7 +147,7 @@ public class TestEmbeddedBroker {
     /**
      * Sets up a consumer for a DLQ that just prints out the dead message to
      * the log.
-     * 
+     *
      * @throws JMSException If there is a problem setting up the consumer.
      */
     public void setUpDlqConsumer(final String dlqName) throws JMSException {

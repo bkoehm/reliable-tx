@@ -16,12 +16,12 @@
  */
 package io.github.bkoehm.reliabletx.camel;
 
-import java.util.concurrent.ConcurrentLinkedDeque;
-
 import org.apache.camel.Exchange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.PlatformTransactionManager;
+
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * @author Brian Koehmstedt

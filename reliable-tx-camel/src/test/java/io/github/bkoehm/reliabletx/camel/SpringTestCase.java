@@ -20,12 +20,12 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-import junit.framework.TestCase;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * @author Brian Koehmstedt
  */
-public abstract class SpringTestCase extends TestCase {
+public abstract class SpringTestCase {
     private ClassPathXmlApplicationContext springContext;
 
     public void setUpSpring(String springResourcesFile) {
