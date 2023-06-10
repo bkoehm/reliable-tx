@@ -27,6 +27,7 @@ import org.apache.camel.Processor;
 import org.apache.camel.Route;
 import org.apache.camel.RuntimeCamelException;
 import org.apache.camel.ServiceStatus;
+import org.apache.camel.builder.DefaultErrorHandlerBuilder;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jms.JmsEndpoint;
 import org.apache.camel.component.jms.MessageListenerContainerFactory;
@@ -48,11 +49,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Tests reliable transactions for Camel using a JTA transaction manager.
+ * Tests reliable transactions for Camel using a JMS transaction manager.
  *
  * @author Brian Koehmstedt
  */
-public class JtaTransactionTest extends ActiveMQTestCase {
+public class CamelTransactionTest extends ActiveMQTestCase {
     protected Logger log = LoggerFactory.getLogger(ActiveMQTestCase.class);
 
     private static final int WAIT_FOR_REPLY_TIMEOUT = 5000; // milliseconds
@@ -81,17 +82,21 @@ public class JtaTransactionTest extends ActiveMQTestCase {
     protected Endpoint testFailingConsumerWithExchangeFailuresTransactedCLQueueEndpointForProducer;
 
     protected DefaultCamelContext getCamelContext() {
-        return getBean("jtaCamelContext", DefaultCamelContext.class);
+        return getBean("camelContext", DefaultCamelContext.class);
     }
 
     /* request-reply producers need a different context because they can't be
      * transactional */
     protected DefaultCamelContext getProducerCamelContext() {
-        return getBean("ntCamelContext", DefaultCamelContext.class);
+        return getBean("camelContext", DefaultCamelContext.class);
+    }
+
+    protected DefaultErrorHandlerBuilder getErrorHandlerBuilder() {
+        return getBean("camelErrorHandlerBuilder", DefaultErrorHandlerBuilder.class);
     }
 
     protected PlatformTransactionManager getTransactionManager() {
-        return getBean("jtaTransactionManager", PlatformTransactionManager.class);
+        return getBean("jmsTransactionManager", PlatformTransactionManager.class);
     }
 
     protected ReliableTxConsumerBuilder getConsumerBuilder() {
@@ -122,7 +127,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
     @BeforeEach
     public void setUp() throws Exception {
         /* Start test ActiveMQ embedded broker and initialize Spring. */
-        setUpActiveMQ("resources-atomikos.xml");
+        setUpActiveMQ("spring-resources.xml");
 
         /* Print out DLQ messages to the log. Establishing the DLQs ahead of
          * time also initializes statistics numbers to 0 for these DLQs. */
@@ -269,7 +274,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
                 from("direct:transactedCLTest").to(testTransactedCLQueueEndpointForProducer);
 
                 // producer throws an exception before message sent
-                from("direct:transactedPreSentFailureTest").onException(Exception.class).maximumRedeliveries(0).end()
+                from("direct:transactedPreSentFailureTest").errorHandler(getErrorHandlerBuilder()).onException(Exception.class).maximumRedeliveries(0).end()
                         .process(new Processor() {
                             @Override
                             public void process(Exchange exchange) throws Exception {
@@ -278,7 +283,7 @@ public class JtaTransactionTest extends ActiveMQTestCase {
                         }).to(testTransactedQueueEndpointForProducer);
 
                 // producer throws an exception after message sent
-                from("direct:transactedPostSentFailureTest").onException(Exception.class).maximumRedeliveries(0).end()
+                from("direct:transactedPostSentFailureTest").errorHandler(getErrorHandlerBuilder()).onException(Exception.class).maximumRedeliveries(0).end()
                         .to(testTransactedQueueEndpointForProducer).process(new Processor() {
                             @Override
                             public void process(Exchange exchange) throws Exception {
