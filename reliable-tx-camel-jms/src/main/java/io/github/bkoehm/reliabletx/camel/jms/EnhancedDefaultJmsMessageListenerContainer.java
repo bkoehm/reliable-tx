@@ -19,9 +19,9 @@ package io.github.bkoehm.reliabletx.camel.jms;
 import java.security.SecureRandom;
 import java.util.Random;
 
-import javax.jms.JMSException;
-import javax.jms.MessageConsumer;
-import javax.jms.Session;
+import jakarta.jms.JMSException;
+import jakarta.jms.MessageConsumer;
+import jakarta.jms.Session;
 
 import io.github.bkoehm.reliabletx.spring.ManagedSpringTransaction;
 import io.github.bkoehm.reliabletx.spring.ManagedSpringTransactionImpl;
@@ -53,7 +53,7 @@ public class EnhancedDefaultJmsMessageListenerContainer extends DefaultJmsMessag
 
     /**
      * @see org.springframework.jms.listener.AbstractPollingMessageListenerContainer#receiveAndExecute(java.lang.Object,
-     *      javax.jms.Session, javax.jms.MessageConsumer)
+     *      jakarta.jms.Session, jakarta.jms.MessageConsumer)
      */
     @Override
     protected boolean receiveAndExecute(Object invoker, Session session, MessageConsumer consumer) throws JMSException {

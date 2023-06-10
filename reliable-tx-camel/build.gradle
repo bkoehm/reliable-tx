@@ -61,16 +61,14 @@ dependencies {
     testImplementation "org.apache.camel:camel-jms:$camelVersion"
 
     // ActiveMQ
-    testImplementation "org.apache.activemq:activemq-broker:$amqVersion"
-    testImplementation "org.apache.camel:camel-activemq:$camelVersion"
+    testImplementation("org.apache.activemq:activemq-broker:$amqVersion") {
+        exclude group: 'org.apache.activemq', module: 'activemq-client'
+    }
+    testImplementation "org.apache.activemq:activemq-client-jakarta:$amqVersion"
+    testImplementation "org.apache.camel:camel-jms:$camelVersion"
 
     // Spring JMS (primarily for the JmsTransactionManager)
     testImplementation "org.springframework:spring-jms:$springVersion"
-
-    // JTA
-    testImplementation "com.atomikos:transactions-jta:$atomikosVersion"
-    testImplementation "com.atomikos:transactions-jms:$atomikosVersion"
-    testImplementation 'javax.transaction:jta:1.1'
 
     // reliable-tx
     implementation project(":reliable-tx-spring")
@@ -147,12 +145,14 @@ publishing {
         }
     }
     repositories {
-        maven {
-            name = "OSSRH"
-            url project.property("default_ossrh_url")
-            credentials {
-                username project.property("default_ossrh_username")
-                password project.property("default_ossrh_password")
+        if (project.hasProperty("default_ossrh_url")) {
+            maven {
+                name = "OSSRH"
+                url project.property("default_ossrh_url")
+                credentials {
+                    username project.property("default_ossrh_username")
+                    password project.property("default_ossrh_password")
+                }
             }
         }
     }

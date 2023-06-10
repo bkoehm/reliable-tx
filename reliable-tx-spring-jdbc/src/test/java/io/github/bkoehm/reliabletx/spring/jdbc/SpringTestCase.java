@@ -41,7 +41,7 @@ public abstract class SpringTestCase {
 
     public void setUpSpring(String springResourcesFile) {
         /* Initialize a Spring context using an application context
-         * configured from a config file that configures a JTA transaction
+         * configured from a config file that configures a transaction
          * manager. */
         this.springContext = new ClassPathXmlApplicationContext(springResourcesFile);
     }

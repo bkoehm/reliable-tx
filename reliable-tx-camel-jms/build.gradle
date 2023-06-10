@@ -62,7 +62,7 @@ dependencies {
     implementation "org.apache.camel:camel-core:$camelVersion"
     implementation "org.apache.camel:camel-jms:$camelVersion"
 
-    compileOnly "org.apache.geronimo.specs:geronimo-jms_1.1_spec:1.1.1"
+    compileOnly "jakarta.jms:jakarta.jms-api:3.1.0"
 
     // reliable-tx-spring
     implementation project(":reliable-tx-spring")
@@ -130,12 +130,14 @@ publishing {
         }
     }
     repositories {
-        maven {
-            name = "OSSRH"
-            url project.property("default_ossrh_url")
-            credentials {
-                username project.property("default_ossrh_username")
-                password project.property("default_ossrh_password")
+        if (project.hasProperty("default_ossrh_url")) {
+            maven {
+                name = "OSSRH"
+                url project.property("default_ossrh_url")
+                credentials {
+                    username project.property("default_ossrh_username")
+                    password project.property("default_ossrh_password")
+                }
             }
         }
     }
