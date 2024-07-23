@@ -25,6 +25,7 @@ import org.apache.activemq.broker.region.policy.PolicyMap;
 import org.apache.activemq.broker.region.policy.RedeliveryPolicyMap;
 import org.apache.activemq.broker.util.RedeliveryPlugin;
 import org.apache.activemq.command.ActiveMQQueue;
+import org.apache.activemq.transport.vm.VMTransportFactory;
 import org.apache.log4j.Logger;
 
 import jakarta.jms.Connection;
@@ -53,6 +54,8 @@ public class TestEmbeddedBroker {
     private List<Connection> consumerConnections = new LinkedList<Connection>();
 
     public void startUpBroker() throws Exception {
+        // make sure the vm transport is fully stopped from previous runs
+        VMTransportFactory.stopped("localhost");
         // Start up an embedded ActiveMQ broker
         this.brokerService = new BrokerService();
         brokerService.setUseJmx(false);
@@ -87,6 +90,7 @@ public class TestEmbeddedBroker {
         }
         consumerConnections.clear();
         brokerService.stop();
+        VMTransportFactory.stopped("localhost");
     }
 
     public BrokerService getBrokerService() {

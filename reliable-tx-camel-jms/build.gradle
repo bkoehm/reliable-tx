@@ -24,8 +24,11 @@ plugins {
 // variables in gradle.properties
 group = projectGroup
 version = projectVersion
-sourceCompatibility = jdkCompatibilityVersion
-targetCompatibility = jdkCompatibilityVersion
+
+java {
+    sourceCompatibility = jdkCompatibilityVersion
+    targetCompatibility = jdkCompatibilityVersion
+}
 
 repositories {
     mavenLocal()

@@ -24,8 +24,11 @@ plugins {
 // variables in gradle.properties
 group = projectGroup
 version = projectVersion
-sourceCompatibility = jdkCompatibilityVersion
-targetCompatibility = jdkCompatibilityVersion
+
+java {
+    sourceCompatibility = jdkCompatibilityVersion
+    targetCompatibility = jdkCompatibilityVersion
+}
 
 repositories {
     mavenLocal()
@@ -53,18 +56,14 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
     testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
 
-    runtimeOnly 'javax.xml.bind:jaxb-api:2.4.0-b180830.0359'
-
     // Camel
     implementation "org.apache.camel:camel-core:$camelVersion"
     implementation "org.apache.camel:camel-spring:$camelVersion"
     testImplementation "org.apache.camel:camel-jms:$camelVersion"
 
     // ActiveMQ
-    testImplementation("org.apache.activemq:activemq-broker:$amqVersion") {
-        exclude group: 'org.apache.activemq', module: 'activemq-client'
-    }
-    testImplementation "org.apache.activemq:activemq-client-jakarta:$amqVersion"
+    testImplementation("org.apache.activemq:activemq-broker:$amqVersion")
+    testImplementation "org.apache.activemq:activemq-client:$amqVersion"
     testImplementation "org.apache.camel:camel-jms:$camelVersion"
 
     // Spring JMS (primarily for the JmsTransactionManager)

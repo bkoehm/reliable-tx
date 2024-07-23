@@ -42,11 +42,7 @@ public abstract class SpringTestCase {
 
     public void stopSpringContext() {
         assertNotNull(springContext);
-        try {
-            springContext.close();
-        } finally {
-            springContext.stop();
-        }
+        springContext.stop();
     }
 
     public <T> T getBean(String name, Class<T> requiredType) throws BeansException {

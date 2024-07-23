@@ -24,8 +24,11 @@ plugins {
 // variables in gradle.properties
 group = projectGroup
 version = projectVersion
-sourceCompatibility = jdkCompatibilityVersion
-targetCompatibility = jdkCompatibilityVersion
+
+java {
+    sourceCompatibility = jdkCompatibilityVersion
+    targetCompatibility = jdkCompatibilityVersion
+}
 
 repositories {
     mavenLocal()
@@ -54,7 +57,7 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
 
     // Embedded HSQLDB for testing
-    testImplementation group: 'org.hsqldb', name: 'hsqldb', version: '2.6.1'
+    testImplementation group: 'org.hsqldb', name: 'hsqldb', version: hsqldbVersion
     
     // Spring
     implementation "org.springframework:spring-core:$springVersion"
