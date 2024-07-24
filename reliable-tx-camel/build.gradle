@@ -117,6 +117,7 @@ publishing {
                     name projectName
                     description projectDescription
                     url githubWebUrl
+                    packaging 'jar'
                     scm {
                         url githubWebUrl
                         connection "scm:git:${githubWebUrl}.git"
@@ -132,11 +133,15 @@ publishing {
                     }
                     issueManagement {
                         url "${githubWebUrl}/issues"
+                        system 'GitHub'
                     }
                     developers {
                         developer {
                             id 'bkoehm'
                             name 'Brian Koehmstedt'
+                            email '1261658+bkoehm@users.noreply.github.com'
+                            organization 'io.github.bkoehm'
+                            organizationUrl githubWebUrl
                         }
                     }
                 }
