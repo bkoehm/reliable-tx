@@ -43,21 +43,24 @@ public class EnhancedDataSourceTransactionManager extends DataSourceTransactionM
         super(dataSource);
     }
 
-    /**
-     * Important note: This won't get called if a transactional method calls
-     * another in the same class instance. So the transaction name check will
-     * only happen between method calls across different class instances.
-     * 
-     * @see org.springframework.transaction.support.AbstractPlatformTransactionManager#newTransactionStatus(org.springframework.transaction.TransactionDefinition,
-     *      java.lang.Object, boolean, boolean, boolean, java.lang.Object)
-     */
     @Override
-    protected DefaultTransactionStatus newTransactionStatus(TransactionDefinition definition, Object transaction,
-            boolean newTransaction, boolean newSynchronization, boolean debug, Object suspendedResources) {
+    protected void doBegin(Object transaction, TransactionDefinition definition) {
         // throws an exception if the name checks don't pass
         EnhancedTransactionManagerUtil.checkNewTransactionStatusForName(definition, suspendedTransactionName.get());
-        return super.newTransactionStatus(definition, transaction, newTransaction, newSynchronization, debug,
-                suspendedResources);
+        super.doBegin(transaction, definition);
+    }
+
+    /**
+     * This won't get called if a transactional method calls another in the
+     * same class instance.  So the transaction name check will only happen
+     * between method calls across different class instances.
+     */
+    @Override
+    protected void prepareSynchronization(DefaultTransactionStatus status, TransactionDefinition definition) {
+        // throws an exception if the name checks don't pass
+        EnhancedTransactionManagerUtil.checkNewTransactionStatusForName(definition, suspendedTransactionName.get());
+        super.prepareSynchronization(status, definition);
+        EnhancedTransactionManagerUtil.prepareTrackingSynchronization(status);
     }
 
     @Override
@@ -72,11 +75,5 @@ public class EnhancedDataSourceTransactionManager extends DataSourceTransactionM
     protected void doResume(Object transaction, Object suspendedResources) {
         super.doResume(transaction, suspendedResources);
         suspendedTransactionName.remove();
-    }
-
-    @Override
-    protected void prepareSynchronization(DefaultTransactionStatus status, TransactionDefinition definition) {
-        super.prepareSynchronization(status, definition);
-        EnhancedTransactionManagerUtil.prepareTrackingSynchronization(status);
     }
 }

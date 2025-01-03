@@ -28,14 +28,12 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 public abstract class EnhancedTransactionManagerUtil {
 
     /**
-     * Call this from an overridden {@code newTransactionStatus()} in a class
-     * that extends
-     * {@link org.springframework.transaction.support.AbstractPlatformTransactionManager}
-     * .
+     * Call this from overridden {@code prepareSynchronization()} and
+     * {@code doBegin()} in a class that extends
+     * {@link org.springframework.transaction.support.AbstractPlatformTransactionManager}.
      *
      * <p>
-     * Important note:
-     * {@code AbstractPlatformTransactionManager.newTransactionStatus()}
+     * {@code AbstractPlatformTransactionManager.prepareSynchronization()}
      * won't get called if a transactional method calls another in the same
      * class instance. So the transaction name check will only happen between
      * method calls across different class instances.
@@ -46,9 +44,6 @@ public abstract class EnhancedTransactionManagerUtil {
      *             TransactionDefinition propagation behavior supports an
      *             existing transaction and the definition's transaction name
      *             does not match the name of the existing transaction.
-     * 
-     * @see org.springframework.transaction.support.AbstractPlatformTransactionManager#newTransactionStatus(org.springframework.transaction.TransactionDefinition,
-     *      java.lang.Object, boolean, boolean, boolean, java.lang.Object)
      */
     public static void checkNewTransactionStatusForName(TransactionDefinition definition, String suspendedTxName)
             throws TransactionUsageException {
