@@ -54,9 +54,9 @@ public abstract class SpringTestCase {
     public void stopSpringContext() {
         assertNotNull(springContext);
         try {
-            springContext.close();
-        } finally {
             springContext.stop();
+        } finally {
+            springContext.close();
         }
     }
 
