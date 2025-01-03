@@ -65,9 +65,9 @@ public class SpringBehaviorTests extends SpringTestCase {
         });
 
         // No transaction should be active since testTransaction() should
-        // have committed since that method uses using Spring's AOP
-        // @Transactional and we started with no transaction upon
-        // testTransaction()'s entry.
+        // have committed since that method uses Spring's AOP @Transactional
+        // and we started with no transaction upon testTransaction()'s
+        // entry.
         assertNoTransaction(dataSource);
 
         // We expect one row to be inserted, confirming that the testBean
