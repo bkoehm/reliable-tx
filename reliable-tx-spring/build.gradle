@@ -55,6 +55,7 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter-api:$junitVersion"
     testImplementation "org.junit.jupiter:junit-jupiter-engine:$junitVersion"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 
     // Embedded HSQLDB for testing
     testImplementation group: 'org.hsqldb', name: 'hsqldb', version: hsqldbVersion
@@ -137,10 +138,10 @@ publishing {
         if (project.hasProperty("default_ossrh_url")) {
             maven {
                 name = "OSSRH"
-                url project.property("default_ossrh_url")
+                url = project.property("default_ossrh_url")
                 credentials {
-                    username project.property("default_ossrh_username")
-                    password project.property("default_ossrh_password")
+                    username = project.property("default_ossrh_username")
+                    password = project.property("default_ossrh_password")
                 }
             }
         }
