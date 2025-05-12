@@ -1,2 +1,23 @@
 // Root project doesn't have any source code to build.
 // See settings.gradle for the included subprojects.
+
+plugins {
+    id('io.github.gradle-nexus.publish-plugin') version '2.0.0'
+}
+
+// variables in gradle.properties
+group = projectGroup
+version = projectVersion
+
+nexusPublishing {
+    repositories {
+        if (project.hasProperty("default_ossrh_url")) {
+            sonatype {
+                nexusUrl.set(uri(project.property("default_ossrh_url")))
+                snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
+                username = project.property("default_ossrh_username")
+                password = project.property("default_ossrh_password")
+            }
+        }
+    }
+}
